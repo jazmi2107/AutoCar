@@ -22,7 +22,7 @@
         "APP_URL": "https://auto-car-ivory.vercel.app",
         "DB_CONNECTION": "sqlite",
         "DB_DATABASE": ":memory:",
-        "FIREBASE_PROJECT": "autocar-9a1a7",
+        "FIREBASE_PROJECT": "app",
         "APP_CONFIG_CACHE": "/tmp/config.php",
         "APP_EVENTS_CACHE": "/tmp/events.php",
         "APP_PACKAGES_CACHE": "/tmp/packages.php",
