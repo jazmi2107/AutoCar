@@ -17,7 +17,36 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::latest()->paginate(15);
+        $database = app('firebase.database');
+        $usersCollection = collect();
+
+        try {
+            $snapshot = $database->getReference('users')->getSnapshot();
+            
+            if ($snapshot->exists()) {
+                foreach ($snapshot->getValue() as $uid => $data) {
+                    $data['id'] = $uid;
+                    $usersCollection->push((object)$data);
+                }
+            }
+        } catch (\Exception $e) {
+            // Log error
+        }
+
+        // Sort by latest
+        $users = $usersCollection->sortByDesc('created_at');
+        
+        // Paginate
+        $perPage = 15;
+        $page = request()->input('page', 1);
+        $users = new \Illuminate\Pagination\LengthAwarePaginator(
+            $users->forPage($page, $perPage),
+            $users->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+
         return view('users.list', compact('users'));
     }
 

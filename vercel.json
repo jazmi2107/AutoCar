@@ -17,9 +17,9 @@
     ],
     "env": {
         "APP_ENV": "production",
-        "APP_KEY": "base64:IAAWVC++ZdUQWwkbOVcIJkLwAbv/9vTmQgh8wRChCoI=",
         "APP_DEBUG": "true",
-        "APP_URL": "https://auto-car-ivory.vercel.app",
+        "APP_URL": "https://${VERCEL_URL}",
+        "APP_KEY": "${APP_KEY}",
         "DB_CONNECTION": "sqlite",
         "DB_DATABASE": ":memory:",
         "FIREBASE_PROJECT": "app",

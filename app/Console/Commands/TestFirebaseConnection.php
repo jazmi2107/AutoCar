@@ -60,19 +60,14 @@ class TestFirebaseConnection extends Command
         }
 
         try {
-            $this->info('Attempting to connect to Firestore...');
-            $firestore = Firebase::firestore();
-            $database = $firestore->database();
-            // Just listing collections to test connection
-            $collections = $database->collections();
-            $fsCount = 0;
-            foreach ($collections as $collection) {
-                $fsCount++;
-                break; // One is enough
-            }
-            $this->info('Successfully connected to Firestore!');
+            $this->info('Attempting to connect to Realtime Database...');
+            $database = Firebase::database();
+            $reference = $database->getReference('test_connection');
+            $reference->set(['connected' => true, 'timestamp' => time()]);
+            $this->info('Successfully wrote to Realtime Database!');
+            $reference->remove(); // Clean up
         } catch (\Exception $e) {
-            $this->error('Failed to connect to Firestore: ' . $e->getMessage());
+            $this->error('Failed to connect to Realtime Database: ' . $e->getMessage());
         }
 
         return 0;

@@ -104,7 +104,7 @@ return [
                  * https://my-project-id.firebaseio.com
                  */
 
-                'url' => env('FIREBASE_DATABASE_URL'),
+                'url' => env('FIREBASE_DATABASE_URL', 'https://autocar-9a1a7-default-rtdb.asia-southeast1.firebasedatabase.app/'),
 
                 /*
                  * As a best practice, a service should have access to only the resources it needs.

@@ -3,119 +3,96 @@
 namespace App\Models;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Auth\Access\Authorizable;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Support\Jsonable;
-use ArrayAccess;
+use Kreait\Firebase\Contract\Auth as FirebaseAuth;
 
-class FirebaseUser implements Authenticatable, Arrayable, ArrayAccess, Jsonable
+class FirebaseUser implements Authenticatable
 {
-    protected $attributes = [];
-    protected $rememberTokenName = 'remember_token';
+    protected $uid;
+    protected $email;
+    protected $displayName;
+    protected $phoneNumber;
+    protected $photoUrl;
+    protected $customClaims;
+    protected $metadata;
 
-    public function __construct(array $attributes = [])
+    // Additional fields from Firestore/RTDB
+    protected $role;
+    protected $attributes = [];
+
+    public function __construct($data = [])
     {
-        $this->attributes = $attributes;
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                $this->{$key} = $value;
+                $this->attributes[$key] = $value;
+            }
+        } elseif ($data instanceof \Kreait\Firebase\Auth\UserRecord) {
+            $this->uid = $data->uid;
+            $this->email = $data->email;
+            $this->displayName = $data->displayName;
+            $this->phoneNumber = $data->phoneNumber;
+            $this->photoUrl = $data->photoUrl;
+            $this->customClaims = $data->customClaims;
+            $this->metadata = $data->metadata;
+            
+            // Map custom claims to attributes if needed
+            if (isset($data->customClaims['role'])) {
+                $this->role = $data->customClaims['role'];
+            }
+        }
     }
 
-    /**
-     * Get the name of the unique identifier for the user.
-     *
-     * @return string
-     */
     public function getAuthIdentifierName()
     {
-        return 'localId';
+        return 'uid';
     }
 
-    /**
-     * Get the unique identifier for the user.
-     *
-     * @return mixed
-     */
     public function getAuthIdentifier()
     {
-        return $this->attributes['localId'] ?? null;
+        return $this->uid;
     }
 
-    /**
-     * Get the password for the user.
-     *
-     * @return string
-     */
     public function getAuthPassword()
     {
-        return $this->attributes['password'] ?? '';
+        // Firebase handles password verification, so this is not used in the traditional sense.
+        // However, Laravel might call it.
+        return '';
     }
 
-    /**
-     * Get the token value for the "remember me" session.
-     *
-     * @return string
-     */
     public function getRememberToken()
     {
-        return $this->attributes[$this->getRememberTokenName()] ?? null;
+        return null; // Stateless or handled by session
     }
 
-    /**
-     * Set the token value for the "remember me" session.
-     *
-     * @param  string  $value
-     * @return void
-     */
     public function setRememberToken($value)
     {
-        $this->attributes[$this->getRememberTokenName()] = $value;
+        // Not implemented
     }
 
-    /**
-     * Get the column name for the "remember me" token.
-     *
-     * @return string
-     */
     public function getRememberTokenName()
     {
-        return $this->rememberTokenName;
+        return null;
     }
 
     public function __get($key)
     {
-        return $this->attributes[$key] ?? null;
+        if (isset($this->attributes[$key])) {
+            return $this->attributes[$key];
+        }
+        return null;
     }
-
+    
     public function __set($key, $value)
     {
         $this->attributes[$key] = $value;
+        if (property_exists($this, $key)) {
+            $this->{$key} = $value;
+        }
     }
 
-    public function toArray()
+    // Helper to get role
+    public function hasRole($role)
     {
-        return $this->attributes;
-    }
-
-    public function toJson($options = 0)
-    {
-        return json_encode($this->attributes, $options);
-    }
-
-    public function offsetExists($offset): bool
-    {
-        return isset($this->attributes[$offset]);
-    }
-
-    public function offsetGet($offset): mixed
-    {
-        return $this->attributes[$offset] ?? null;
-    }
-
-    public function offsetSet($offset, $value): void
-    {
-        $this->attributes[$offset] = $value;
-    }
-
-    public function offsetUnset($offset): void
-    {
-        unset($this->attributes[$offset]);
+        return $this->role === $role;
     }
 }

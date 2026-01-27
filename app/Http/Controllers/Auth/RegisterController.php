@@ -3,12 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Driver;
-use App\Models\Mechanic;
-use App\Models\InsuranceCompany;
+use App\Models\FirebaseUser;
 use Illuminate\Foundation\Auth\RegistersUsers;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Auth\Events\Registered;
@@ -37,7 +33,7 @@ class RegisterController extends Controller
 
     public function redirectTo()
     {
-        if (auth()->check() && auth()->user()->role == 'user') {
+        if (auth()->check() && auth()->user()->hasRole('user')) {
             return route('user.dashboard');
         }
         return '/home';
@@ -60,7 +56,25 @@ class RegisterController extends Controller
      */
     public function showRegistrationForm()
     {
-        $insuranceCompanies = InsuranceCompany::where('approval_status', 'approved')->get();
+        $insuranceCompanies = [];
+        try {
+            $database = app('firebase.database');
+            $reference = $database->getReference('users');
+            $snapshot = $reference->orderByChild('role')->equalTo('insurance_company')->getSnapshot();
+            
+            if ($snapshot->exists()) {
+                foreach ($snapshot->getValue() as $uid => $data) {
+                    if (isset($data['approval_status']) && $data['approval_status'] === 'approved') {
+                        $company = (object) $data;
+                        $company->id = $uid;
+                        $insuranceCompanies[] = $company;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Log::error("Failed to fetch insurance companies: " . $e->getMessage());
+        }
+        
         return view('auth.register', compact('insuranceCompanies'));
     }
 
@@ -75,7 +89,7 @@ class RegisterController extends Controller
         return Validator::make($data, [
             'role' => ['required', 'string', 'in:user,mechanic,insurance_company'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'phone_number' => ['required', 'string', 'max:20'],
             'address' => ['required', 'string'],
@@ -88,11 +102,11 @@ class RegisterController extends Controller
             // Mechanic specific
             'license_number' => ['required_if:role,mechanic', 'nullable', 'string', 'max:50'],
             'years_of_experience' => ['required_if:role,mechanic', 'nullable', 'integer', 'min:0'],
-            'insurance_company_id' => ['required_if:role,mechanic', 'nullable', 'exists:insurance_companies,id'],
+            'insurance_company_id' => ['required_if:role,mechanic', 'nullable', 'string'],
 
             // Insurance Company specific
             'company_name' => ['required_if:role,insurance_company', 'nullable', 'string', 'max:255'],
-            'registration_number' => ['required_if:role,insurance_company', 'nullable', 'string', 'max:50', 'unique:insurance_companies'],
+            'registration_number' => ['required_if:role,insurance_company', 'nullable', 'string', 'max:50'],
             'website' => ['nullable', 'string', 'url', 'max:255'],
         ]);
     }
@@ -101,52 +115,68 @@ class RegisterController extends Controller
      * Create a new user instance after a valid registration.
      *
      * @param  array  $data
-     * @return \App\Models\User
+     * @return \App\Models\FirebaseUser
      */
     protected function create(array $data)
     {
-        $user = User::create([
-            'name' => $data['name'], // For insurance, this might be company name or contact person. Let's use the input name.
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-            'role' => $data['role'],
-        ]);
+        $auth = app('firebase.auth');
+        $database = app('firebase.database');
 
-        if ($data['role'] === 'user') {
-            Driver::create([
-                'user_id' => $user->id,
-                'phone_number' => $data['phone_number'],
-                'address' => $data['address'],
-                'date_of_birth' => $data['date_of_birth'],
-                'vehicle_make' => $data['vehicle_make'],
-                'vehicle_model' => $data['vehicle_model'],
-                'plate_number' => $data['plate_number'],
-            ]);
-        } elseif ($data['role'] === 'mechanic') {
-            Mechanic::create([
-                'user_id' => $user->id,
-                'phone_number' => $data['phone_number'],
-                'address' => $data['address'],
-                'date_of_birth' => $data['date_of_birth'],
-                'license_number' => $data['license_number'],
-                'years_of_experience' => $data['years_of_experience'],
-                'insurance_company_id' => $data['insurance_company_id'],
-                'availability_status' => 'available',
-                'approval_status' => 'pending',
-            ]);
-        } elseif ($data['role'] === 'insurance_company') {
-            InsuranceCompany::create([
-                'user_id' => $user->id,
-                'company_name' => $data['company_name'],
-                'registration_number' => $data['registration_number'],
-                'phone_number' => $data['phone_number'],
-                'address' => $data['address'],
-                'website' => $data['website'] ?? null,
-                'approval_status' => 'pending',
+        $userProperties = [
+            'email' => $data['email'],
+            'emailVerified' => false,
+            'password' => $data['password'],
+            'displayName' => $data['name'],
+            'disabled' => false,
+        ];
+
+        try {
+            $createdUser = $auth->createUser($userProperties);
+        } catch (\Kreait\Firebase\Exception\Auth\EmailExists $e) {
+             throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => ['The email has already been taken.'],
             ]);
         }
 
-        return $user;
+        $userData = [
+            'role' => $data['role'],
+            'email' => $data['email'],
+            'name' => $data['name'],
+            'phone_number' => $data['phone_number'],
+            'address' => $data['address'],
+            'created_at' => ['.sv' => 'timestamp'],
+        ];
+
+        if ($data['role'] === 'user') {
+            $userData += [
+                'date_of_birth' => $data['date_of_birth'] ?? null,
+                'vehicle_make' => $data['vehicle_make'] ?? null,
+                'vehicle_model' => $data['vehicle_model'] ?? null,
+                'plate_number' => $data['plate_number'] ?? null,
+            ];
+        } elseif ($data['role'] === 'mechanic') {
+            $userData += [
+                'date_of_birth' => $data['date_of_birth'] ?? null,
+                'license_number' => $data['license_number'] ?? null,
+                'years_of_experience' => $data['years_of_experience'] ?? null,
+                'insurance_company_id' => $data['insurance_company_id'] ?? null,
+                'availability_status' => 'available',
+                'approval_status' => 'pending',
+            ];
+        } elseif ($data['role'] === 'insurance_company') {
+            $userData += [
+                'company_name' => $data['company_name'] ?? null,
+                'registration_number' => $data['registration_number'] ?? null,
+                'website' => $data['website'] ?? null,
+                'approval_status' => 'pending',
+            ];
+        }
+
+        // Save to RTDB
+        $database->getReference('users/' . $createdUser->uid)->set($userData);
+        
+        // Return FirebaseUser instance
+        return new FirebaseUser($createdUser);
     }
 
     /**
@@ -159,7 +189,9 @@ class RegisterController extends Controller
     {
         $this->validator($request->all())->validate();
 
-        event(new Registered($user = $this->create($request->all())));
+        $user = $this->create($request->all());
+
+        event(new Registered($user));
 
         if ($request->role === 'mechanic' || $request->role === 'insurance_company') {
             return redirect($this->redirectPath())->with('status', 'Registration successful! Please wait for approval before logging in.');

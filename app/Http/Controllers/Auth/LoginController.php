@@ -30,9 +30,8 @@ class LoginController extends Controller
      */
     protected function authenticated(Request $request, $user)
     {
-        if ($user->role == 'mechanic') {
-            $mechanic = $user->mechanic;
-            if ($mechanic && $mechanic->approval_status !== 'approved') {
+        if ($user->hasRole('mechanic')) {
+            if ($user->approval_status !== 'approved') {
                 $this->guard()->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
@@ -40,9 +39,8 @@ class LoginController extends Controller
                 return redirect()->route('login')
                     ->with('error', 'Your account is pending approval from the administrator.');
             }
-        } elseif ($user->role == 'insurance_company') {
-            $company = $user->insuranceCompany;
-            if ($company && $company->approval_status !== 'approved') {
+        } elseif ($user->hasRole('insurance_company')) {
+            if ($user->approval_status !== 'approved') {
                 $this->guard()->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
@@ -62,13 +60,13 @@ class LoginController extends Controller
 
     protected function redirectTo()
     {
-        if (auth()->user()->role == 'admin') {
+        if (auth()->user()->hasRole('admin')) {
             return route('admin.dashboard');
-        } elseif (auth()->user()->role == 'user') {
+        } elseif (auth()->user()->hasRole('user')) {
             return route('user.dashboard');
-        } elseif (auth()->user()->role == 'mechanic') {
+        } elseif (auth()->user()->hasRole('mechanic')) {
             return route('mechanic.dashboard');
-        } elseif (auth()->user()->role == 'insurance_company') {
+        } elseif (auth()->user()->hasRole('insurance_company')) {
             return route('insurance_company.dashboard');
         }
         return '/home';

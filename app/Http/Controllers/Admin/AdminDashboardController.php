@@ -29,28 +29,74 @@ class AdminDashboardController extends Controller
      */
     public function index()
     {
-        // Statistics
-        $totalUsers = User::where('role', 'user')->count();
-        $totalMechanics = Mechanic::count();
-        $totalInsuranceCompanies = InsuranceCompany::count();
-        $totalRequests = AssistanceRequest::count();
+        $database = app('firebase.database');
         
-        $pendingMechanics = Mechanic::where('approval_status', 'pending')->count();
-        $pendingInsurance = InsuranceCompany::where('approval_status', 'pending')->count();
-        $pendingRequests = AssistanceRequest::where('status', 'pending')->count();
-        $completedRequests = AssistanceRequest::where('status', 'completed')->count();
+        $totalUsers = 0;
+        $totalMechanics = 0;
+        $totalInsuranceCompanies = 0;
+        $pendingMechanics = 0;
+        $pendingInsurance = 0;
+        
+        $recentInsurance = collect();
 
-        // Recent activities
-        $recentRequests = AssistanceRequest::with(['user', 'mechanic', 'insuranceCompany'])
-            ->latest()
-            ->take(10)
-            ->get();
+        try {
+            // Fetch all users once (optimization: use shallow=true if possible, but we need fields)
+            $snapshot = $database->getReference('users')->getSnapshot();
+            
+            if ($snapshot->exists()) {
+                foreach ($snapshot->getValue() as $uid => $data) {
+                    $role = $data['role'] ?? 'user';
+                    
+                    if ($role === 'user') {
+                        $totalUsers++;
+                    } elseif ($role === 'mechanic') {
+                        $totalMechanics++;
+                        if (($data['approval_status'] ?? '') === 'pending') {
+                            $pendingMechanics++;
+                        }
+                    } elseif ($role === 'insurance_company') {
+                        $totalInsuranceCompanies++;
+                        if (($data['approval_status'] ?? '') === 'pending') {
+                            $pendingInsurance++;
+                            
+                            // Collect pending insurance for recent list
+                            if ($recentInsurance->count() < 5) {
+                                $data['id'] = $uid; // Append ID
+                                $recentInsurance->push((object)$data);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Handle error (log it)
+        }
 
-        $recentInsurance = InsuranceCompany::with('user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->take(5)
-            ->get();
+        // For Assistance Requests, we might need another collection in RTDB or stick to MySQL if hybrid
+        // Assuming we are moving to Firebase, we should count from 'assistance_requests' node
+        $totalRequests = 0;
+        $pendingRequests = 0;
+        $completedRequests = 0;
+        $recentRequests = collect();
+
+        try {
+             $reqSnapshot = $database->getReference('assistance_requests')->getSnapshot();
+             if ($reqSnapshot->exists()) {
+                 foreach ($reqSnapshot->getValue() as $key => $req) {
+                     $totalRequests++;
+                     $status = $req['status'] ?? 'pending';
+                     if ($status === 'pending') $pendingRequests++;
+                     if ($status === 'completed') $completedRequests++;
+                     
+                     if ($recentRequests->count() < 10) {
+                         $req['id'] = $key;
+                         $recentRequests->push((object)$req);
+                     }
+                 }
+             }
+        } catch (\Exception $e) {
+             // Fallback to 0
+        }
 
         return view('admins.index', compact(
             'totalUsers',
@@ -71,20 +117,48 @@ class AdminDashboardController extends Controller
      */
     public function users(Request $request)
     {
-        $query = User::where('role', 'user')
-            ->with('driver')
-            ->withCount('assistanceRequests');
+        $database = app('firebase.database');
+        $usersCollection = collect();
+
+        try {
+            // Fetch all users and filter in PHP to avoid "Index not defined" error until rules are updated
+            $snapshot = $database->getReference('users')->getSnapshot();
+
+            if ($snapshot->exists()) {
+                foreach ($snapshot->getValue() as $uid => $data) {
+                    // Filter by role 'user'
+                    if (($data['role'] ?? '') === 'user') {
+                        $data['id'] = $uid;
+                        $usersCollection->push((object)$data);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Log error
+        }
 
         // Search filter
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+            $search = strtolower($request->search);
+            $usersCollection = $usersCollection->filter(function ($user) use ($search) {
+                return str_contains(strtolower($user->name ?? ''), $search) || 
+                       str_contains(strtolower($user->email ?? ''), $search);
             });
         }
 
-        $users = $query->latest()->paginate(15)->withQueryString();
+        // Sort by created_at (latest) - assuming created_at is timestamp
+        $usersCollection = $usersCollection->sortByDesc('created_at');
+
+        // Manual Pagination
+        $perPage = 15;
+        $page = $request->input('page', 1);
+        $users = new \Illuminate\Pagination\LengthAwarePaginator(
+            $usersCollection->forPage($page, $perPage),
+            $usersCollection->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return view('admins.users.index', compact('users'));
     }

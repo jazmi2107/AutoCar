@@ -23,7 +23,7 @@ class FirebaseUserProvider implements UserProvider
     {
         try {
             $user = $this->auth->getUser($identifier);
-            return $this->mapUser($user);
+            return $this->attachUserProfile($user);
         } catch (\Exception $e) {
             return null;
         }
@@ -49,7 +49,7 @@ class FirebaseUserProvider implements UserProvider
 
         try {
             $user = $this->auth->getUserByEmail($credentials['email']);
-            return $this->mapUser($user);
+            return $this->attachUserProfile($user);
         } catch (\Exception $e) {
             return null;
         }
@@ -59,7 +59,12 @@ class FirebaseUserProvider implements UserProvider
     {
         $email = $credentials['email'];
         $password = $credentials['password'];
-        $apiKey = env('VITE_FIREBASE_API_KEY'); // Use env variable
+        $apiKey = env('FIREBASE_API_KEY');
+
+        if (empty($apiKey)) {
+             // Fallback to VITE key if server key missing
+             $apiKey = env('VITE_FIREBASE_API_KEY');
+        }
 
         $response = Http::post("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={$apiKey}", [
             'email' => $email,
@@ -70,16 +75,30 @@ class FirebaseUserProvider implements UserProvider
         return $response->successful();
     }
 
+    protected function attachUserProfile($authUserData)
+    {
+        $firebaseUser = new FirebaseUser($authUserData);
+        
+        try {
+            $database = app('firebase.database');
+            $reference = $database->getReference('users/' . $authUserData->uid);
+            $snapshot = $reference->getSnapshot();
+            
+            if ($snapshot->exists()) {
+                $profile = $snapshot->getValue();
+                foreach ($profile as $key => $value) {
+                    $firebaseUser->$key = $value;
+                }
+            }
+        } catch (\Exception $e) {
+            // Ignore DB errors, return user with just Auth data
+        }
+        
+        return $firebaseUser;
+    }
+
     protected function mapUser($firebaseUser)
     {
-        return new FirebaseUser([
-            'localId' => $firebaseUser->uid,
-            'email' => $firebaseUser->email,
-            'displayName' => $firebaseUser->displayName,
-            'photoUrl' => $firebaseUser->photoUrl,
-            'emailVerified' => $firebaseUser->emailVerified,
-            'disabled' => $firebaseUser->disabled,
-            // Add other fields as needed, potentially fetching from Firestore/RTDB here
-        ]);
+        return new FirebaseUser($firebaseUser);
     }
 }
