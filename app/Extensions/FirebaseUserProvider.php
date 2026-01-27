@@ -59,7 +59,7 @@ class FirebaseUserProvider implements UserProvider
     {
         $email = $credentials['email'];
         $password = $credentials['password'];
-        $apiKey = 'AIzaSyDlPEIuw2hv20hPt8it4yxun990vlxOW4E'; // Hardcoded from JS config
+        $apiKey = env('VITE_FIREBASE_API_KEY'); // Use env variable
 
         $response = Http::post("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={$apiKey}", [
             'email' => $email,
