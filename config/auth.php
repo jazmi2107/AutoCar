@@ -61,13 +61,13 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'firebase',
-            'model' => App\Models\FirebaseUser::class,
+            'driver' => 'eloquent',
+            'model' => App\Models\User::class,
         ],
 
         // 'users' => [
-        //     'driver' => 'eloquent',
-        //     'model' => App\Models\User::class,
+        //     'driver' => 'firebase',
+        //     'model' => App\Models\FirebaseUser::class,
         // ],
     ],
 
