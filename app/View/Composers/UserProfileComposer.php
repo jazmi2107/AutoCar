@@ -13,7 +13,7 @@ class UserProfileComposer
     public function compose(View $view): void
     {
         if (Auth::check()) {
-            $user = Auth::user()->load('driver');
+            $user = Auth::user();
             $view->with('authUser', $user);
         }
     }
