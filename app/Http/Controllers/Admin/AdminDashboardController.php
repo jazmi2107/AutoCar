@@ -1,0 +1,783 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\Admin;
+use App\Models\Mechanic;
+use App\Models\InsuranceCompany;
+use App\Models\AssistanceRequest;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+
+class AdminDashboardController extends Controller
+{
+    /**
+     * Create a new controller instance.
+     */
+    public function __construct()
+    {
+        $this->middleware('auth');
+        // Add role check middleware if you have one
+        // $this->middleware('role:admin');
+    }
+
+    /**
+     * Show the admin dashboard.
+     */
+    public function index()
+    {
+        // Statistics
+        $totalUsers = User::where('role', 'user')->count();
+        $totalMechanics = Mechanic::count();
+        $totalInsuranceCompanies = InsuranceCompany::count();
+        $totalRequests = AssistanceRequest::count();
+        
+        $pendingMechanics = Mechanic::where('approval_status', 'pending')->count();
+        $pendingInsurance = InsuranceCompany::where('approval_status', 'pending')->count();
+        $pendingRequests = AssistanceRequest::where('status', 'pending')->count();
+        $completedRequests = AssistanceRequest::where('status', 'completed')->count();
+
+        // Recent activities
+        $recentRequests = AssistanceRequest::with(['user', 'mechanic', 'insuranceCompany'])
+            ->latest()
+            ->take(10)
+            ->get();
+
+        $recentInsurance = InsuranceCompany::with('user')
+            ->where('approval_status', 'pending')
+            ->latest()
+            ->take(5)
+            ->get();
+
+        return view('admins.index', compact(
+            'totalUsers',
+            'totalMechanics',
+            'totalInsuranceCompanies',
+            'totalRequests',
+            'pendingMechanics',
+            'pendingInsurance',
+            'pendingRequests',
+            'completedRequests',
+            'recentRequests',
+            'recentInsurance'
+        ));
+    }
+
+    /**
+     * Show all users (role = user only).
+     */
+    public function users(Request $request)
+    {
+        $query = User::where('role', 'user')
+            ->with('driver')
+            ->withCount('assistanceRequests');
+
+        // Search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->latest()->paginate(15)->withQueryString();
+
+        return view('admins.users.index', compact('users'));
+    }
+
+    /**
+     * Show create user form.
+     */
+    public function createUser()
+    {
+        return view('admins.users.create');
+    }
+
+    /**     * Show user details.
+     */
+    public function showUser($id)
+    {
+        $user = User::withCount('assistanceRequests')->findOrFail($id);
+        $recentRequests = $user->assistanceRequests()->latest()->take(5)->get();
+        
+        return view('admins.users.show', compact('user', 'recentRequests'));
+    }
+
+    /**
+     * Store a new user.
+     */
+    public function storeUser(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|min:8|confirmed',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $validated['password'] = Hash::make($validated['password']);
+        $validated['role'] = 'user';
+        $phone = $validated['phone'] ?? null;
+        unset($validated['phone']);
+        
+        $user = User::create($validated);
+
+        // Create driver record with phone number
+        if ($phone) {
+            $user->driver()->create([
+                'phone_number' => $phone,
+            ]);
+        }
+
+        return redirect()->route('admin.users')
+            ->with('success', 'User created successfully!');
+    }
+
+    /**
+     * Show edit user form.
+     */
+    public function editUser($id)
+    {
+        $user = User::with('driver')->findOrFail($id);
+        return view('admins.users.edit', compact('user'));
+    }
+
+    /**
+     * Update user.
+     */
+    public function updateUser(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'phone' => 'nullable|string|max:20',
+            'role' => 'required|in:user,mechanic,insurance,admin',
+        ]);
+
+        if ($request->filled('password')) {
+            $request->validate(['password' => 'min:8|confirmed']);
+            $validated['password'] = Hash::make($request->password);
+        }
+
+        $phone = $validated['phone'] ?? null;
+        unset($validated['phone']);
+
+        $user->update($validated);
+
+        // Update or create driver record with phone number if role is user
+        if ($user->role === 'user') {
+            if ($user->driver) {
+                $user->driver->update(['phone_number' => $phone]);
+            } elseif ($phone) {
+                $user->driver()->create(['phone_number' => $phone]);
+            }
+        }
+
+        return redirect()->route('admin.users')
+            ->with('success', 'User updated successfully!');
+    }
+
+    /**
+     * Delete user.
+     */
+    public function deleteUser($id)
+    {
+        $user = User::findOrFail($id);
+        
+        // Prevent deleting own account
+        if ($user->id === Auth::id()) {
+            return back()->with('error', 'You cannot delete your own account!');
+        }
+
+        $user->delete();
+
+        return redirect()->route('admin.users')
+            ->with('success', 'User deleted successfully!');
+    }
+
+    /**
+     * Show mechanic approvals page.
+     */
+    public function mechanicApprovals()
+    {
+        $mechanics = Mechanic::with(['user', 'insuranceCompany'])
+            ->where('approval_status', 'pending')
+            ->latest()
+            ->paginate(15);
+
+        return view('admins.mechanics.approvals', compact('mechanics'));
+    }
+
+    /**
+     * Show all mechanics.
+     */
+    public function mechanics(Request $request)
+    {
+        $query = Mechanic::with(['user', 'insuranceCompany'])
+            ->where('approval_status', 'approved');
+
+        // Search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('user', function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $mechanics = $query->latest()->paginate(15)->withQueryString();
+
+        return view('admins.mechanics.index', compact('mechanics'));
+    }
+
+    /**
+     * Show mechanic details.
+     */
+    public function showMechanic($id)
+    {
+        $mechanic = Mechanic::with(['user', 'insuranceCompany'])->findOrFail($id);
+        $requests = AssistanceRequest::where('mechanic_id', $id)
+            ->with('user')
+            ->latest()
+            ->paginate(10);
+
+        return view('admins.mechanics.show', compact('mechanic', 'requests'));
+    }
+
+    /**
+     * Approve mechanic.
+     */
+    public function approveMechanic($id)
+    {
+        $mechanic = Mechanic::findOrFail($id);
+        $mechanic->update(['approval_status' => 'approved']);
+
+        return back()->with('success', 'Mechanic approved successfully!');
+    }
+
+    /**
+     * Reject mechanic.
+     */
+    public function rejectMechanic(Request $request, $id)
+    {
+        $mechanic = Mechanic::findOrFail($id);
+        
+        $validated = $request->validate([
+            'rejection_reason' => 'nullable|string|max:500'
+        ]);
+
+        $mechanic->update([
+            'approval_status' => 'rejected',
+            'rejection_reason' => $validated['rejection_reason'] ?? null
+        ]);
+
+        return back()->with('success', 'Mechanic rejected!');
+    }
+
+    /**
+     * Delete mechanic.
+     */
+    public function deleteMechanic($id)
+    {
+        $mechanic = Mechanic::findOrFail($id);
+        $user = $mechanic->user;
+        
+        // Delete the mechanic record
+        $mechanic->delete();
+        
+        // Optionally delete the user account as well
+        if ($user) {
+            $user->delete();
+        }
+
+        return redirect()->route('admin.mechanics')->with('success', 'Mechanic deleted successfully!');
+    }
+
+    /**
+     * Show edit mechanic form.
+     */
+    public function editMechanic($id)
+    {
+        $mechanic = Mechanic::with(['user', 'insuranceCompany'])->findOrFail($id);
+        $insuranceCompanies = InsuranceCompany::where('approval_status', 'approved')->get();
+        return view('admins.mechanics.edit', compact('mechanic', 'insuranceCompanies'));
+    }
+
+    /**
+     * Show create mechanic form.
+     */
+    public function createMechanic()
+    {
+        $insuranceCompanies = InsuranceCompany::where('approval_status', 'approved')->get();
+        return view('admins.mechanics.create', compact('insuranceCompanies'));
+    }
+
+    /**
+     * Store new mechanic.
+     */
+    public function storeMechanic(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
+            'phone_number' => 'nullable|string|max:20',
+            'insurance_name' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:500',
+            'years_of_experience' => 'nullable|integer|min:0',
+            'license_number' => 'nullable|string|max:100',
+            'insurance_company_id' => 'nullable|exists:insurance_companies,id',
+        ]);
+
+        // Create user account
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => 'mechanic',
+        ]);
+
+        // Create mechanic record (mechanics don't need approval, default to available)
+        $user->mechanic()->create([
+            'phone_number' => $validated['phone_number'],
+            'insurance_name' => $validated['insurance_name'],
+            'address' => $validated['address'],
+            'years_of_experience' => $validated['years_of_experience'] ?? 0,
+            'license_number' => $validated['license_number'],
+            'insurance_company_id' => $validated['insurance_company_id'],
+            'availability_status' => 'available',
+        ]);
+
+        return redirect()->route('admin.mechanics')->with('success', 'Mechanic created successfully!');
+    }
+
+    /**
+     * Update mechanic.
+     */
+    public function updateMechanic(Request $request, $id)
+    {
+        $mechanic = Mechanic::with('user')->findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $mechanic->user_id,
+            'phone_number' => 'nullable|string|max:20',
+            'insurance_name' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:500',
+            'years_of_experience' => 'nullable|integer|min:0',
+            'license_number' => 'nullable|string|max:100',
+            'insurance_company_id' => 'nullable|exists:insurance_companies,id',
+            'availability_status' => 'required|in:available,busy,offline',
+            'approval_status' => 'required|in:pending,approved,rejected',
+        ]);
+
+        // Update user information
+        $mechanic->user->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+        ]);
+
+        // Update mechanic information
+        $mechanic->update([
+            'phone_number' => $validated['phone_number'],
+            'insurance_name' => $validated['insurance_name'] ?? null,
+            'address' => $validated['address'],
+            'years_of_experience' => $validated['years_of_experience'],
+            'license_number' => $validated['license_number'],
+            'insurance_company_id' => $validated['insurance_company_id'],
+            'availability_status' => $validated['availability_status'],
+            'approval_status' => $validated['approval_status'],
+        ]);
+
+        return redirect()->route('admin.mechanics')->with('success', 'Mechanic updated successfully!');
+    }
+
+    /**
+     * Show all insurance companies.
+     */
+    public function insurance(Request $request)
+    {
+        $query = InsuranceCompany::with('user')->withCount('mechanics')
+            ->where('approval_status', '!=', 'pending');
+
+        // Search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('company_name', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($uq) use ($search) {
+                      $uq->where('email', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // Status filter
+        if ($request->filled('status')) {
+            $query->where('approval_status', $request->status);
+        }
+
+        $companies = $query->latest()->paginate(15)->withQueryString();
+
+        return view('admins.insurance.index', compact('companies'));
+    }
+
+    /**
+     * Approve insurance company.
+     */
+    public function approveInsurance($id)
+    {
+        $company = InsuranceCompany::findOrFail($id);
+        $company->update(['approval_status' => 'approved']);
+
+        return back()->with('success', 'Insurance company approved successfully!');
+    }
+
+    /**
+     * Reject insurance company.
+     */
+    public function rejectInsurance(Request $request, $id)
+    {
+        $company = InsuranceCompany::findOrFail($id);
+        
+        $validated = $request->validate([
+            'rejection_reason' => 'required|string|max:500'
+        ]);
+
+        $company->update([
+            'approval_status' => 'rejected',
+            'rejection_reason' => $validated['rejection_reason']
+        ]);
+
+        return back()->with('success', 'Insurance company rejected!');
+    }
+
+    /**
+     * Show insurance company details.
+     */
+    public function showInsurance($id)
+    {
+        $company = InsuranceCompany::with('user')->findOrFail($id);
+        $mechanics = Mechanic::where('insurance_company_id', $id)
+            ->with('user')
+            ->latest()
+            ->paginate(10);
+
+        return view('admins.insurance.show', compact('company', 'mechanics'));
+    }
+
+    /**
+     * Show create insurance company form.
+     */
+    public function createInsurance()
+    {
+        return view('admins.insurance.create');
+    }
+
+    /**
+     * Store new insurance company.
+     */
+    public function storeInsurance(Request $request)
+    {
+        $validated = $request->validate([
+            'company_name' => 'required|string|max:255',
+            'registration_number' => 'required|string|max:100|unique:insurance_companies,registration_number',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
+            'phone_number' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:500',
+            'website' => 'nullable|url|max:255',
+        ]);
+
+        // Create user account
+        $user = User::create([
+            'name' => $validated['company_name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => 'insurance_company',
+        ]);
+
+        // Create insurance company record (approved by default when created by admin)
+        $user->insuranceCompany()->create([
+            'company_name' => $validated['company_name'],
+            'registration_number' => $validated['registration_number'],
+            'phone_number' => $validated['phone_number'],
+            'address' => $validated['address'],
+            'website' => $validated['website'],
+            'approval_status' => 'approved',
+        ]);
+
+        return redirect()->route('admin.insurance')->with('success', 'Insurance company created successfully!');
+    }
+
+    /**
+     * Show edit insurance company form.
+     */
+    public function editInsurance($id)
+    {
+        $company = InsuranceCompany::with('user')->findOrFail($id);
+        return view('admins.insurance.edit', compact('company'));
+    }
+
+    /**
+     * Update insurance company.
+     */
+    public function updateInsurance(Request $request, $id)
+    {
+        $company = InsuranceCompany::with('user')->findOrFail($id);
+        
+        $validated = $request->validate([
+            'company_name' => 'required|string|max:255',
+            'registration_number' => 'required|string|max:100|unique:insurance_companies,registration_number,' . $id,
+            'email' => 'required|email|unique:users,email,' . $company->user_id,
+            'phone_number' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:500',
+            'website' => 'nullable|url|max:255',
+            'approval_status' => 'required|in:pending,approved,rejected',
+        ]);
+
+        // Update user information
+        $company->user->update([
+            'name' => $validated['company_name'],
+            'email' => $validated['email'],
+        ]);
+
+        // Update insurance company information
+        $company->update([
+            'company_name' => $validated['company_name'],
+            'registration_number' => $validated['registration_number'],
+            'phone_number' => $validated['phone_number'],
+            'address' => $validated['address'],
+            'website' => $validated['website'],
+            'approval_status' => $validated['approval_status'],
+        ]);
+
+        return redirect()->route('admin.insurance')->with('success', 'Insurance company updated successfully!');
+    }
+
+    /**
+     * Delete insurance company.
+     */
+    public function deleteInsurance($id)
+    {
+        $company = InsuranceCompany::findOrFail($id);
+        $user = $company->user;
+        
+        // Delete the insurance company record
+        $company->delete();
+        
+        // Delete the user account as well
+        if ($user) {
+            $user->delete();
+        }
+
+        return redirect()->route('admin.insurance')->with('success', 'Insurance company deleted successfully!');
+    }
+
+    /**
+     * Show all assistance requests.
+     */
+    public function requests(Request $request)
+    {
+        $query = AssistanceRequest::with(['user', 'mechanic.user', 'mechanic.insuranceCompany']);
+
+        // Filter by status
+        if ($request->has('status') && $request->status != '') {
+            $query->where('status', $request->status);
+        }
+
+        // Search functionality
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('phone_number', 'like', "%{$search}%")
+                  ->orWhere('plate_number', 'like', "%{$search}%")
+                  ->orWhere('vehicle_model', 'like', "%{$search}%");
+            });
+        }
+
+        $requests = $query->latest()->paginate(15);
+
+        return view('admins.requests.index', compact('requests'));
+    }
+
+    /**
+     * Show request details.
+     */
+    public function showRequest($id)
+    {
+        $request = AssistanceRequest::with(['user', 'mechanic.user', 'mechanic.insuranceCompany'])
+            ->findOrFail($id);
+
+        // Get available mechanics for assignment
+        $mechanics = Mechanic::with(['user', 'insuranceCompany'])
+            ->where('approval_status', 'approved')
+            ->where('availability_status', 'available')
+            ->get();
+
+        return view('admins.requests.show', compact('request', 'mechanics'));
+    }
+
+    /**
+     * Assign mechanic to request.
+     */
+    public function assignMechanic(Request $request, $id)
+    {
+        $assistanceRequest = AssistanceRequest::findOrFail($id);
+        
+        $validated = $request->validate([
+            'mechanic_id' => 'required|exists:mechanics,id'
+        ]);
+
+        $assistanceRequest->update([
+            'mechanic_id' => $validated['mechanic_id'],
+            'status' => 'assigned'
+        ]);
+
+        return back()->with('success', 'Mechanic assigned successfully!');
+    }
+
+    /**
+     * Update request status.
+     */
+    public function updateRequestStatus(Request $request, $id)
+    {
+        $assistanceRequest = AssistanceRequest::findOrFail($id);
+        
+        $validated = $request->validate([
+            'status' => 'required|in:pending,assigned,in_progress,completed,cancelled'
+        ]);
+
+        $assistanceRequest->update(['status' => $validated['status']]);
+
+        return back()->with('success', 'Request status updated successfully!');
+    }
+
+    /**
+     * Show admin profile.
+     */
+    public function profile()
+    {
+        $user = Auth::user();
+        $admin = $user->admin;
+        return view('admins.profile', compact('user', 'admin'));
+    }
+
+    /**
+     * Update admin profile.
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = Auth::user()->load('admin');
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'phone_number' => 'nullable|string|max:20',
+            'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        // Update user table (name, email)
+        $user->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+        ]);
+
+        // Prepare admin data
+        $adminData = [];
+        
+        // Only update phone_number if provided
+        if (isset($validated['phone_number'])) {
+            $adminData['phone_number'] = $validated['phone_number'];
+        }
+
+        // Handle profile picture upload
+        if ($request->hasFile('profile_picture') && $request->file('profile_picture')->isValid()) {
+            // Delete old profile picture if exists
+            if ($user->admin && $user->admin->profile_picture) {
+                \Storage::disk('public')->delete($user->admin->profile_picture);
+            }
+
+            // Store new profile picture
+            $path = $request->file('profile_picture')->store('profile_pictures', 'public');
+            $adminData['profile_picture'] = $path;
+        }
+
+        // Update or create admin record
+        if (!empty($adminData)) {
+            $admin = $user->admin()->updateOrCreate(
+                ['user_id' => $user->id],
+                $adminData
+            );
+            
+            // Force refresh the relationship
+            $user->load('admin');
+        }
+
+        return back()->with('success', 'Profile updated successfully!');
+    }
+
+    /**
+     * Update admin password.
+     */
+    public function updatePassword(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'current_password' => 'required',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        // Check if current password matches
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return back()->withErrors(['current_password' => 'Current password is incorrect.']);
+        }
+
+        // Check if new password is the same as current password
+        if (Hash::check($validated['password'], $user->password)) {
+            return back()->withErrors(['password' => 'New password must be different from current password.']);
+        }
+
+        $user->update(['password' => Hash::make($validated['password'])]);
+
+        return back()->with('success', 'Password updated successfully!');
+    }
+
+    /**
+     * Show unified approvals page.
+     */
+    public function approvals()
+    {
+        $pendingMechanics = Mechanic::with(['user', 'insuranceCompany'])
+            ->where('approval_status', 'pending')
+            ->latest()
+            ->paginate(10, ['*'], 'mechanics_page');
+
+        $pendingInsurance = InsuranceCompany::with('user')
+            ->where('approval_status', 'pending')
+            ->latest()
+            ->paginate(10, ['*'], 'insurance_page');
+
+        return view('admins.approvals', compact('pendingMechanics', 'pendingInsurance'));
+    }
+
+    /**
+     * Show pending insurance companies for approval.
+     */
+    public function insuranceApprovals()
+    {
+        $companies = InsuranceCompany::with('user')
+            ->where('approval_status', 'pending')
+            ->latest()
+            ->paginate(15);
+
+        return view('admins.insurance.approvals', compact('companies'));
+    }
+}
