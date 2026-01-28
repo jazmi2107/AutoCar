@@ -659,10 +659,14 @@ class UserDashboardController extends Controller
     {
         if (!app()->bound('firebase.database')) return collect();
         $db = app('firebase.database');
-        $snapshot = $db->getReference('assistance_requests')->orderByChild('user_id')->equalTo($userId)->getSnapshot();
+        // Fetch all and filter in memory to avoid RTDB index requirements
+        $snapshot = $db->getReference('assistance_requests')->getSnapshot();
         $data = $snapshot->getValue() ?: [];
         $collection = collect();
         foreach ($data as $key => $value) {
+            if (isset($value['user_id']) && (string)$value['user_id'] !== (string)$userId) {
+                continue;
+            }
             $value['id'] = $key;
             $collection->push($this->mapToModel($value));
         }

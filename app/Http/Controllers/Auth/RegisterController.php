@@ -60,11 +60,12 @@ class RegisterController extends Controller
         try {
             $database = app('firebase.database');
             $reference = $database->getReference('users');
-            $snapshot = $reference->orderByChild('role')->equalTo('insurance_company')->getSnapshot();
-            
+            // Fetch all and filter in memory to avoid RTDB index requirements
+            $snapshot = $reference->getSnapshot();
             if ($snapshot->exists()) {
                 foreach ($snapshot->getValue() as $uid => $data) {
-                    if (isset($data['approval_status']) && $data['approval_status'] === 'approved') {
+                    if ((isset($data['role']) && $data['role'] === 'insurance_company')
+                        && (isset($data['approval_status']) && $data['approval_status'] === 'approved')) {
                         $company = (object) $data;
                         $company->id = $uid;
                         $insuranceCompanies[] = $company;
