@@ -72,7 +72,7 @@
     <div class="container">
         <div class="page-header">
             <h1><i class="fas fa-shield-alt" style="color: #f8c300;"></i> Admin Dashboard</h1>
-            <p>Welcome back, {{ Auth::user()->name }}! Manage your AutoCar system</p>
+            <p>Welcome back, {{ Auth::user()->name ?? 'Admin' }}! Manage your AutoCar system</p>
         </div>
 
         @if(session('success'))

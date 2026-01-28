@@ -68,9 +68,9 @@
                         $hasAdminPicture = $currentAdmin && $currentAdmin->profile_picture && \Storage::disk('public')->exists($currentAdmin->profile_picture);
                         $adminProfilePicUrl = $hasAdminPicture 
                             ? asset('storage/' . $currentAdmin->profile_picture) 
-                            : 'https://ui-avatars.com/api/?name=' . urlencode($currentUser->name) . '&background=random';
+                            : 'https://ui-avatars.com/api/?name=' . urlencode($currentUser->name ?? 'Admin') . '&background=random';
                     @endphp
-                    <img src="{{ $adminProfilePicUrl }}" alt="Admin Profile" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($currentUser->name) }}&background=random'">
+                    <img src="{{ $adminProfilePicUrl }}" alt="Admin Profile" onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($currentUser->name ?? 'Admin') }}&background=random'">
                 </button>
                 <div class="dropdown-menu" id="userDropdown">
                     <a href="{{ route('admin.profile') }}">My Profile</a>
