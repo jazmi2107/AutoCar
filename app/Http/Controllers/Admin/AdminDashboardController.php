@@ -321,12 +321,7 @@ class AdminDashboardController extends Controller
      */
     public function mechanicApprovals()
     {
-        $mechanics = Mechanic::with(['user', 'insuranceCompany'])
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(15);
-
-        return view('admins.mechanics.approvals', compact('mechanics'));
+        return redirect()->route('admin.approvals');
     }
 
     /**
@@ -334,21 +329,8 @@ class AdminDashboardController extends Controller
      */
     public function mechanics(Request $request)
     {
-        $query = Mechanic::with(['user', 'insuranceCompany'])
-            ->where('approval_status', 'approved');
-
-        // Search filter
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->whereHas('user', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        $mechanics = $query->latest()->paginate(15)->withQueryString();
-
-        return view('admins.mechanics.index', compact('mechanics'));
+        // TODO: Implement Firebase fetching for mechanics list
+        return redirect()->route('admin.dashboard')->with('info', 'Mechanic list is being migrated to Firebase.');
     }
 
     /**
@@ -953,12 +935,7 @@ class AdminDashboardController extends Controller
      */
     public function insuranceApprovals()
     {
-        $companies = InsuranceCompany::with('user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(15);
-
-        return view('admins.insurance.approvals', compact('companies'));
+        return redirect()->route('admin.approvals');
     }
 
     /**
