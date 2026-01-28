@@ -870,15 +870,80 @@ class AdminDashboardController extends Controller
      */
     public function approvals()
     {
-        $pendingMechanics = Mechanic::with(['user', 'insuranceCompany'])
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(10, ['*'], 'mechanics_page');
+        $database = app('firebase.database');
+        
+        $pendingMechanics = collect();
+        $pendingInsurance = collect();
+        
+        try {
+            // Fetch users from Firebase
+            $snapshot = $database->getReference('users')->getSnapshot();
+            
+            if ($snapshot->exists()) {
+                foreach ($snapshot->getValue() as $uid => $data) {
+                    $role = $data['role'] ?? '';
+                    $status = $data['approval_status'] ?? '';
+                    
+                    if ($status === 'pending') {
+                        $data['id'] = $uid;
+                        // Recursively convert to object
+                        $obj = json_decode(json_encode($data));
+                        
+                        // Handle date
+                        if (isset($obj->created_at)) {
+                            try {
+                                $obj->created_at = \Illuminate\Support\Carbon::parse($obj->created_at);
+                            } catch (\Exception $e) {
+                                $obj->created_at = now();
+                            }
+                        } else {
+                            $obj->created_at = now();
+                        }
 
-        $pendingInsurance = InsuranceCompany::with('user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(10, ['*'], 'insurance_page');
+                        // Ensure user relation structure for view compatibility
+                        // The view expects $mechanic->user->name
+                        // We'll simulate this structure
+                        $userObj = clone $obj;
+                        $obj->user = $userObj;
+
+                        if ($role === 'mechanic') {
+                            $pendingMechanics->push($obj);
+                        } elseif ($role === 'insurance_company') {
+                            $pendingInsurance->push($obj);
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Log error
+        }
+
+        // Sort by date
+        $pendingMechanics = $pendingMechanics->sortByDesc('created_at');
+        $pendingInsurance = $pendingInsurance->sortByDesc('created_at');
+
+        // Paginate manually
+        $perPage = 10;
+        
+        // Mechanics Pagination
+        $mechanicsPage = request()->input('mechanics_page', 1);
+        $pendingMechanics = new \Illuminate\Pagination\LengthAwarePaginator(
+            $pendingMechanics->forPage($mechanicsPage, $perPage),
+            $pendingMechanics->count(),
+            $perPage,
+            $mechanicsPage,
+            ['path' => request()->url(), 'query' => request()->query(), 'pageName' => 'mechanics_page']
+        );
+
+        // Insurance Pagination
+        $insurancePage = request()->input('insurance_page', 1);
+        $pendingInsurance = new \Illuminate\Pagination\LengthAwarePaginator(
+            $pendingInsurance->forPage($insurancePage, $perPage),
+            $pendingInsurance->count(),
+            $perPage,
+            $insurancePage,
+            ['path' => request()->url(), 'query' => request()->query(), 'pageName' => 'insurance_page']
+        );
 
         return view('admins.approvals', compact('pendingMechanics', 'pendingInsurance'));
     }
@@ -902,6 +967,58 @@ class AdminDashboardController extends Controller
     public function reports()
     {
         return view('admins.reports');
+    }
+    
+    public function approveMechanic($id)
+    {
+        $database = app('firebase.database');
+        try {
+            $database->getReference('users/' . $id)->update([
+                'approval_status' => 'approved'
+            ]);
+            return back()->with('success', 'Mechanic approved successfully!');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to approve mechanic: ' . $e->getMessage());
+        }
+    }
+
+    public function rejectMechanic($id)
+    {
+        $database = app('firebase.database');
+        try {
+            $database->getReference('users/' . $id)->update([
+                'approval_status' => 'rejected'
+            ]);
+            return back()->with('success', 'Mechanic rejected successfully!');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to reject mechanic: ' . $e->getMessage());
+        }
+    }
+
+    public function approveInsurance($id)
+    {
+        $database = app('firebase.database');
+        try {
+            $database->getReference('users/' . $id)->update([
+                'approval_status' => 'approved'
+            ]);
+            return back()->with('success', 'Insurance company approved successfully!');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to approve insurance company: ' . $e->getMessage());
+        }
+    }
+
+    public function rejectInsurance($id)
+    {
+        $database = app('firebase.database');
+        try {
+            $database->getReference('users/' . $id)->update([
+                'approval_status' => 'rejected'
+            ]);
+            return back()->with('success', 'Insurance company rejected successfully!');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to reject insurance company: ' . $e->getMessage());
+        }
     }
 
     /**

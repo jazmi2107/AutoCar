@@ -207,6 +207,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/insurance-companies/{id}', [AdminDashboardController::class, 'showInsurance'])->name('insurance.show');
     Route::get('/insurance-companies/{id}/edit', [AdminDashboardController::class, 'editInsurance'])->name('insurance.edit');
     Route::put('/insurance-companies/{id}', [AdminDashboardController::class, 'updateInsurance'])->name('insurance.update');
+    Route::post('/insurance-companies/{id}/approve', [AdminDashboardController::class, 'approveInsurance'])->name('insurance.approve');
+    Route::post('/insurance-companies/{id}/reject', [AdminDashboardController::class, 'rejectInsurance'])->name('insurance.reject');
     Route::delete('/insurance-companies/{id}', [AdminDashboardController::class, 'deleteInsurance'])->name('insurance.delete');
     
     // Assistance Requests

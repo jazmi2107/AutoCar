@@ -128,17 +128,23 @@
                     <tbody>
                         @foreach($pendingMechanics as $mechanic)
                             <tr>
-                                <td><strong>{{ $mechanic->user->name }}</strong></td>
-                                <td>{{ $mechanic->user->email }}</td>
-                                <td>{{ $mechanic->phone_number ?? 'N/A' }}</td>
-                                <td>{{ $mechanic->insuranceCompany->company_name ?? 'Independent' }}</td>
-                                <td>{{ $mechanic->created_at->format('M d, Y') }}</td>
+                                <td><strong>{{ $mechanic->user->name ?? ($mechanic->name ?? 'Unknown') }}</strong></td>
+                                <td>{{ $mechanic->user->email ?? ($mechanic->email ?? 'N/A') }}</td>
+                                <td>{{ $mechanic->driver->phone_number ?? 'N/A' }}</td>
+                                <td>{{ $mechanic->company_name ?? 'Independent' }}</td>
+                                <td>
+                                    @if(isset($mechanic->created_at) && method_exists($mechanic->created_at, 'format'))
+                                        {{ $mechanic->created_at->format('M d, Y') }}
+                                    @else
+                                        {{ $mechanic->created_at ?? 'N/A' }}
+                                    @endif
+                                </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button type="button" class="btn btn-success" onclick="openApproveModal('{{ url('admin/mechanics') }}/{{ $mechanic->id }}/approve', '{{ addslashes($mechanic->user->name) }}')">
+                                        <button type="button" class="btn btn-success" onclick="openApproveModal('{{ route('admin.mechanics.approve', $mechanic->id) }}', '{{ addslashes($mechanic->user->name ?? ($mechanic->name ?? 'Unknown')) }}')">
                                             <i class="fas fa-check"></i> Approve
                                         </button>
-                                        <button type="button" class="btn btn-danger" onclick="openRejectModal('{{ url('admin/mechanics') }}/{{ $mechanic->id }}/reject', '{{ addslashes($mechanic->user->name) }}')">
+                                        <button type="button" class="btn btn-danger" onclick="openRejectModal('{{ route('admin.mechanics.reject', $mechanic->id) }}', '{{ addslashes($mechanic->user->name ?? ($mechanic->name ?? 'Unknown')) }}')">
                                             <i class="fas fa-times"></i> Reject
                                         </button>
                                     </div>
@@ -176,17 +182,23 @@
                     <tbody>
                         @foreach($pendingInsurance as $company)
                             <tr>
-                                <td><strong>{{ $company->company_name }}</strong></td>
-                                <td>{{ $company->user->email }}</td>
-                                <td>{{ $company->registration_number }}</td>
+                                <td><strong>{{ $company->company_name ?? ($company->name ?? 'Unknown') }}</strong></td>
+                                <td>{{ $company->user->email ?? ($company->email ?? 'N/A') }}</td>
+                                <td>{{ $company->registration_number ?? 'N/A' }}</td>
                                 <td>{{ $company->phone_number ?? 'N/A' }}</td>
-                                <td>{{ $company->created_at->format('M d, Y') }}</td>
+                                <td>
+                                    @if(isset($company->created_at) && method_exists($company->created_at, 'format'))
+                                        {{ $company->created_at->format('M d, Y') }}
+                                    @else
+                                        {{ $company->created_at ?? 'N/A' }}
+                                    @endif
+                                </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button type="button" class="btn btn-success" onclick="openApproveModal('{{ url('admin/insurance') }}/{{ $company->id }}/approve', '{{ addslashes($company->company_name) }}')">
+                                        <button type="button" class="btn btn-success" onclick="openApproveModal('{{ route('admin.insurance.approve', $company->id) }}', '{{ addslashes($company->company_name ?? ($company->name ?? 'Unknown')) }}')">
                                             <i class="fas fa-check"></i> Approve
                                         </button>
-                                        <button type="button" class="btn btn-danger" onclick="openRejectModal('{{ url('admin/insurance') }}/{{ $company->id }}/reject', '{{ addslashes($company->company_name) }}')">
+                                        <button type="button" class="btn btn-danger" onclick="openRejectModal('{{ route('admin.insurance.reject', $company->id) }}', '{{ addslashes($company->company_name ?? ($company->name ?? 'Unknown')) }}')">
                                             <i class="fas fa-times"></i> Reject
                                         </button>
                                     </div>
