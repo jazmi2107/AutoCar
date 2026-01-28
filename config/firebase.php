@@ -50,9 +50,9 @@ return [
              *
              */
 
-            'credentials' => env('FIREBASE_CREDENTIALS', env('GOOGLE_APPLICATION_CREDENTIALS')),
+            'credentials' => env('FIREBASE_CREDENTIALS') ?: env('GOOGLE_APPLICATION_CREDENTIALS'),
             
-            'project_id' => env('FIREBASE_PROJECT_ID', 'autocar-9a1a7'),
+            'project_id' => env('FIREBASE_PROJECT_ID') ?: 'autocar-9a1a7',
 
             /*
              * ------------------------------------------------------------------------
