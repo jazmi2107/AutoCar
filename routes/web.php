@@ -63,8 +63,9 @@ Route::get('/debug-auth', function() {
         'raw_env' => [
             'API_KEY_ENV' => env('FIREBASE_API_KEY') ? 'YES' : 'NO',
             'API_KEY_GETENV' => getenv('FIREBASE_API_KEY') ? 'YES' : 'NO',
+            'API_KEY_SERVER' => isset($_SERVER['FIREBASE_API_KEY']) ? 'YES' : 'NO',
             'DB_URL_ENV' => env('FIREBASE_DATABASE_URL') ? 'YES' : 'NO',
-            'CREDENTIALS_ENV' => env('FIREBASE_CREDENTIALS') ? 'YES' : 'NO',
+            'CREDENTIALS_ENV' => (env('FIREBASE_CREDENTIALS') || getenv('FIREBASE_CREDENTIALS')) ? 'YES' : 'NO',
         ],
         'config' => [
             'auth_driver' => config('auth.providers.users.driver'),

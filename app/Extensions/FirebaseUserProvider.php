@@ -19,11 +19,26 @@ class FirebaseUserProvider implements UserProvider
         $this->model = $model;
     }
 
+    protected function getAuth()
+    {
+        if ($this->auth) {
+            return $this->auth;
+        }
+
+        try {
+            $this->auth = app('firebase.auth');
+            return $this->auth;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
     public function retrieveById($identifier)
     {
-        if (!$this->auth) return null;
+        $auth = $this->getAuth();
+        if (!$auth) return null;
         try {
-            $user = $this->auth->getUser($identifier);
+            $user = $auth->getUser($identifier);
             return $this->attachUserProfile($user);
         } catch (\Exception $e) {
             return null;
@@ -41,7 +56,8 @@ class FirebaseUserProvider implements UserProvider
 
     public function retrieveByCredentials(array $credentials)
     {
-        if (!$this->auth) {
+        $auth = $this->getAuth();
+        if (!$auth) {
             \Log::error('Firebase Auth not initialized in retrieveByCredentials. Check FIREBASE_CREDENTIALS.');
             return null;
         }
@@ -51,7 +67,7 @@ class FirebaseUserProvider implements UserProvider
         }
 
         try {
-            $user = $this->auth->getUserByEmail($credentials['email']);
+            $user = $auth->getUserByEmail($credentials['email']);
             return $this->attachUserProfile($user);
         } catch (\Exception $e) {
             \Log::warning('Firebase user not found or error: ' . $e->getMessage());
@@ -61,7 +77,8 @@ class FirebaseUserProvider implements UserProvider
 
     public function validateCredentials(Authenticatable $user, array $credentials)
     {
-        if (!$this->auth) {
+        $auth = $this->getAuth();
+        if (!$auth) {
             \Log::error('Firebase Auth not initialized in validateCredentials.');
             return false;
         }
