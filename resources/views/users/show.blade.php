@@ -553,7 +553,19 @@
                                 <div class="info-label">
                                     <i class="fas fa-calendar"></i> Member Since
                                 </div>
-                                <div class="info-value">{{ $user->created_at->format('M d, Y') }}</div>
+                                <div class="info-value">
+                                    @php
+                                        $memberSince = null;
+                                        if (!empty($user->created_at)) {
+                                            try {
+                                                $memberSince = \Carbon\Carbon::parse($user->created_at)->format('M d, Y');
+                                            } catch (\Throwable $e) {
+                                                $memberSince = is_string($user->created_at) ? $user->created_at : null;
+                                            }
+                                        }
+                                    @endphp
+                                    {{ $memberSince ?? 'Not available' }}
+                                </div>
                             </div>
                             <div class="info-item">
                                 <div class="info-label">
