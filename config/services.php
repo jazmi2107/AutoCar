@@ -41,8 +41,8 @@ return [
     ],
 
     'firebase' => [
-        'api_key' => env('FIREBASE_API_KEY', env('VITE_FIREBASE_API_KEY')),
-        'database_url' => env('FIREBASE_DATABASE_URL'),
+        'api_key' => env('FIREBASE_API_KEY') ?: (getenv('FIREBASE_API_KEY') ?: ($_SERVER['FIREBASE_API_KEY'] ?? env('VITE_FIREBASE_API_KEY'))),
+        'database_url' => env('FIREBASE_DATABASE_URL') ?: (getenv('FIREBASE_DATABASE_URL') ?: ($_SERVER['FIREBASE_DATABASE_URL'] ?? null)),
     ],
 
 ];

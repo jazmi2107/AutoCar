@@ -51,8 +51,12 @@ return [
              */
 
             'credentials' => (function() {
-                $creds = env('FIREBASE_CREDENTIALS');
-                if (!$creds) return env('GOOGLE_APPLICATION_CREDENTIALS');
+                $creds = env('FIREBASE_CREDENTIALS') ?: (getenv('FIREBASE_CREDENTIALS') ?: ($_SERVER['FIREBASE_CREDENTIALS'] ?? null));
+                if (!$creds) {
+                    $creds = env('GOOGLE_APPLICATION_CREDENTIALS') ?: (getenv('GOOGLE_APPLICATION_CREDENTIALS') ?: ($_SERVER['GOOGLE_APPLICATION_CREDENTIALS'] ?? null));
+                }
+                
+                if (!$creds) return null;
                 
                 // If it's a JSON string, try to decode it
                 if (is_string($creds) && str_starts_with(trim($creds), '{')) {
@@ -62,7 +66,7 @@ return [
                 return $creds;
             })(),
             
-            'project_id' => env('FIREBASE_PROJECT_ID') ?: (env('GOOGLE_CLOUD_PROJECT') ?: 'autocar-9a1a7'),
+            'project_id' => env('FIREBASE_PROJECT_ID') ?: (getenv('FIREBASE_PROJECT_ID') ?: ($_SERVER['FIREBASE_PROJECT_ID'] ?? (env('GOOGLE_CLOUD_PROJECT') ?: 'autocar-9a1a7'))),
 
             /*
              * ------------------------------------------------------------------------
