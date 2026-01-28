@@ -163,7 +163,7 @@
                     @foreach($recentRequests->take(7) as $request)
                         <tr>
                             <td><strong style="color: #f8c300;">#{{ $request->id }}</strong></td>
-                            <td>{{ $request->user->name ?? ($request->name ?? 'Unknown') }}</td>
+                            <td>{{ isset($request->user) ? ($request->user->name ?? 'User') : ($request->name ?? 'Unknown') }}</td>
                             <td><i class="fas fa-tools"></i> {{ $request->breakdown_type ?? 'N/A' }}</td>
                             <td><i class="fas fa-car"></i> {{ $request->plate_number ?? 'N/A' }}</td>
                             <td>
