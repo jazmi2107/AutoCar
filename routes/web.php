@@ -30,10 +30,17 @@ Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name
 // Debug Routes
 Route::get('/debug-auth', function() {
     return [
-        'config' => config('auth'),
-        'user_model' => config('auth.providers.users.model'),
-        'user_driver' => config('auth.providers.users.driver'),
-        'env_auth_driver' => env('AUTH_DRIVER'),
+        'auth_config' => config('auth'),
+        'firebase_config' => [
+            'default' => config('firebase.default'),
+            'project' => config('firebase.projects.' . config('firebase.default')),
+        ],
+        'env' => [
+            'FIREBASE_PROJECT_ID' => env('FIREBASE_PROJECT_ID'),
+            'GOOGLE_CLOUD_PROJECT' => env('GOOGLE_CLOUD_PROJECT'),
+            'FIREBASE_PROJECT' => env('FIREBASE_PROJECT'),
+            'HAS_CREDENTIALS' => !empty(env('FIREBASE_CREDENTIALS')),
+        ]
     ];
 });
 
