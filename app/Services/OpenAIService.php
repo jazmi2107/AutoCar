@@ -10,9 +10,13 @@ class OpenAIService
 
     public function __construct()
     {
+        $base = config('services.openai.url');
+        if (!$base || stripos($base, 'chat') !== false || stripos($base, 'completions') !== false) {
+            $base = 'https://api.openai.com/v1';
+        }
         $this->client = OpenAI::factory()
             ->withApiKey(config('services.openai.key'))
-            ->withBaseUri(config('services.openai.url'))
+            ->withBaseUri($base)
             ->withHttpHeader('HTTP-Referer', config('app.url'))
             ->withHttpHeader('X-Title', config('app.name'))
             ->make();
