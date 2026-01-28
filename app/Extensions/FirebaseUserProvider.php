@@ -41,7 +41,12 @@ class FirebaseUserProvider implements UserProvider
 
     public function retrieveByCredentials(array $credentials)
     {
-        if (!$this->auth || !isset($credentials['email'])) {
+        if (!$this->auth) {
+            \Log::error('Firebase Auth not initialized in retrieveByCredentials. Check FIREBASE_CREDENTIALS.');
+            return null;
+        }
+
+        if (!isset($credentials['email'])) {
             return null;
         }
 
@@ -49,30 +54,48 @@ class FirebaseUserProvider implements UserProvider
             $user = $this->auth->getUserByEmail($credentials['email']);
             return $this->attachUserProfile($user);
         } catch (\Exception $e) {
+            \Log::warning('Firebase user not found or error: ' . $e->getMessage());
             return null;
         }
     }
 
     public function validateCredentials(Authenticatable $user, array $credentials)
     {
-        if (!$this->auth) return false;
+        if (!$this->auth) {
+            \Log::error('Firebase Auth not initialized in validateCredentials.');
+            return false;
+        }
         
         $email = $credentials['email'];
         $password = $credentials['password'];
         $apiKey = env('FIREBASE_API_KEY');
 
         if (empty($apiKey)) {
-             // Fallback to VITE key if server key missing
              $apiKey = env('VITE_FIREBASE_API_KEY');
         }
 
-        $response = Http::post("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={$apiKey}", [
-            'email' => $email,
-            'password' => $password,
-            'returnSecureToken' => true,
-        ]);
+        if (empty($apiKey)) {
+            \Log::error('FIREBASE_API_KEY is missing. Cannot validate password.');
+            return false;
+        }
 
-        return $response->successful();
+        try {
+            $response = Http::post("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={$apiKey}", [
+                'email' => $email,
+                'password' => $password,
+                'returnSecureToken' => true,
+            ]);
+
+            if (!$response->successful()) {
+                \Log::warning('Firebase sign-in failed: ' . $response->body());
+                return false;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Firebase API request failed: ' . $e->getMessage());
+            return false;
+        }
     }
 
     protected function attachUserProfile($authUserData)

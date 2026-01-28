@@ -25,11 +25,9 @@ class FirebaseSeedCommand extends Command
     protected $auth;
     protected $database;
 
-    public function __construct(FirebaseAuth $auth, FirebaseDatabase $database)
+    public function __construct()
     {
         parent::__construct();
-        $this->auth = $auth;
-        $this->database = $database;
     }
 
     /**
@@ -37,6 +35,13 @@ class FirebaseSeedCommand extends Command
      */
     public function handle()
     {
+        try {
+            $this->auth = app('firebase.auth');
+            $this->database = app('firebase.database');
+        } catch (\Exception $e) {
+            $this->error('Failed to initialize Firebase: ' . $e->getMessage());
+            return 1;
+        }
         $users = [
             [
                 'email' => 'admin@autocar.com',

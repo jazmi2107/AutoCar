@@ -42,9 +42,9 @@ This means:
     | `APP_KEY` | (Copy from `.env` or generate a new one) |
     | `APP_URL` | Your Vercel domain (e.g., `https://your-app.vercel.app`) |
     | `FIREBASE_PROJECT` | `app` |
-    | `FIREBASE_DATABASE_URL` | `https://autocar-9a1a7-default-rtdb.asia-southeast1.firebasedatabase.app/` |
-    | `FIREBASE_API_KEY` | (Copy from `.env`) |
-    | `FIREBASE_CREDENTIALS` | **The entire JSON content** of your service account file (NOT the file path). |
+    | `FIREBASE_CREDENTIALS` | **The entire JSON content** of your service account file. |
+    | `FIREBASE_API_KEY` | Your Firebase Web API Key (found in Firebase Project Settings). |
+    | `FIREBASE_DATABASE_URL` | Your Firebase Realtime Database URL. |
 
 ### **Important: FIREBASE_CREDENTIALS**
 Since Vercel is a serverless environment, you cannot upload the `.json` file. Instead, you must copy the **text content** of your service account file and paste it into the Vercel Environment Variables.

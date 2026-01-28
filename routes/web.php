@@ -29,27 +29,95 @@ Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name
 
 // Debug Routes
 Route::get('/debug-auth', function() {
+    $firebaseAuth = null;
+    $firebaseDb = null;
+    $authError = null;
+    $dbError = null;
+
+    try {
+        $firebaseAuth = app('firebase.auth');
+    } catch (\Exception $e) {
+        $authError = $e->getMessage();
+    }
+
+    try {
+        $firebaseDb = app('firebase.database');
+    } catch (\Exception $e) {
+        $dbError = $e->getMessage();
+    }
+
     return [
-        'auth_config' => config('auth'),
-        'firebase_config' => [
-            'default' => config('firebase.default'),
-            'project' => config('firebase.projects.' . config('firebase.default')),
+        'status' => [
+            'firebase_auth_initialized' => !is_null($firebaseAuth),
+            'firebase_db_initialized' => !is_null($firebaseDb),
+            'auth_error' => $authError,
+            'db_error' => $dbError,
         ],
-        'env' => [
-            'FIREBASE_PROJECT_ID' => env('FIREBASE_PROJECT_ID'),
-            'GOOGLE_CLOUD_PROJECT' => env('GOOGLE_CLOUD_PROJECT'),
-            'FIREBASE_PROJECT' => env('FIREBASE_PROJECT'),
-            'HAS_CREDENTIALS' => !empty(env('FIREBASE_CREDENTIALS')),
+        'env_check' => [
+            'FIREBASE_API_KEY' => !empty(env('FIREBASE_API_KEY')) ? 'SET (Ends with ...' . substr(env('FIREBASE_API_KEY'), -4) . ')' : 'MISSING',
+            'FIREBASE_DATABASE_URL' => !empty(env('FIREBASE_DATABASE_URL')) ? 'SET' : 'MISSING',
+            'FIREBASE_PROJECT_ID' => env('FIREBASE_PROJECT_ID') ?: 'MISSING',
+            'HAS_FIREBASE_CREDENTIALS' => !empty(env('FIREBASE_CREDENTIALS')),
+            'FIREBASE_CREDENTIALS_TYPE' => !empty(env('FIREBASE_CREDENTIALS')) ? (str_starts_with(trim(env('FIREBASE_CREDENTIALS')), '{') ? 'JSON String' : 'File Path/Other') : 'N/A',
+        ],
+        'config' => [
+            'auth_driver' => config('auth.providers.users.driver'),
+            'firebase_project_id' => config('firebase.project_id'),
         ]
     ];
 });
 
+// Temporary Admin Creation Route (DELETE AFTER USE)
+Route::get('/create-admin-user', function() {
+    try {
+        $auth = app('firebase.auth');
+        $database = app('firebase.database');
+        
+        $email = 'admin@autocar.com';
+        $password = 'password123';
+        $displayName = 'System Admin';
+
+        // 1. Create in Firebase Auth
+        try {
+            $user = $auth->getUserByEmail($email);
+            $uid = $user->uid;
+        } catch (\Kreait\Firebase\Exception\Auth\UserNotFound $e) {
+            $user = $auth->createUser([
+                'email' => $email,
+                'password' => $password,
+                'displayName' => $displayName,
+            ]);
+            $uid = $user->uid;
+        }
+
+        // 2. Set Custom Claims (Role)
+        $auth->setCustomUserClaims($uid, ['role' => 'admin']);
+
+        // 3. Create Profile in RTDB
+        $database->getReference('users/' . $uid)->set([
+            'name' => $displayName,
+            'email' => $email,
+            'role' => 'admin',
+            'approval_status' => 'approved',
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        return "Admin user created successfully! UID: " . $uid;
+    } catch (\Exception $e) {
+        return "Error: " . $e->getMessage();
+    }
+});
+
 Route::get('/clear-cache', function() {
-    Artisan::call('config:clear');
-    Artisan::call('cache:clear');
-    Artisan::call('view:clear');
-    Artisan::call('route:clear');
-    return "Cache cleared";
+    try {
+        Artisan::call('config:clear');
+        Artisan::call('cache:clear');
+        Artisan::call('view:clear');
+        Artisan::call('route:clear');
+        return "Cache cleared successfully!";
+    } catch (\Exception $e) {
+        return "Cache cleared with some issues (likely Firebase initialization): " . $e->getMessage();
+    }
 });
 
 // User Dashboard Routes
