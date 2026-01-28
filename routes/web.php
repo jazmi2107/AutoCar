@@ -209,6 +209,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::put('/insurance-companies/{id}', [AdminDashboardController::class, 'updateInsurance'])->name('insurance.update');
     Route::delete('/insurance-companies/{id}', [AdminDashboardController::class, 'deleteInsurance'])->name('insurance.delete');
     
+    // Assistance Requests
+    Route::get('/requests', [AdminDashboardController::class, 'requests'])->name('requests');
+    Route::get('/requests/{id}', [AdminDashboardController::class, 'showRequest'])->name('requests.show');
+    Route::post('/requests/{id}/assign', [AdminDashboardController::class, 'assignMechanic'])->name('requests.assign');
+    Route::put('/requests/{id}/status', [AdminDashboardController::class, 'updateRequestStatus'])->name('requests.update-status');
+
     // Reports
     Route::get('/reports', [AdminDashboardController::class, 'reports'])->name('reports');
     Route::get('/reports/export', [AdminDashboardController::class, 'exportReports'])->name('reports.export');
