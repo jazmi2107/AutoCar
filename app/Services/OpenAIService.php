@@ -7,19 +7,36 @@ use OpenAI;
 class OpenAIService
 {
     protected $client;
+    protected $isOpenRouter = false;
 
     public function __construct()
     {
-        $base = config('services.openai.url');
-        if (!$base || stripos($base, 'chat') !== false || stripos($base, 'completions') !== false) {
-            $base = 'https://api.openai.com/v1';
+        $apiKey = config('services.openai.key');
+        $baseUri = config('services.openai.url');
+        
+        // Auto-detect OpenRouter
+        if ($apiKey && str_starts_with($apiKey, 'sk-or-v1')) {
+            $this->isOpenRouter = true;
+            $baseUri = 'https://openrouter.ai/api/v1';
+        } elseif (!$baseUri || stripos($baseUri, 'chat') !== false || stripos($baseUri, 'completions') !== false) {
+            // Fallback for official OpenAI if URL is missing or malformed
+            $baseUri = 'https://api.openai.com/v1';
         }
+
         $this->client = OpenAI::factory()
-            ->withApiKey(config('services.openai.key'))
-            ->withBaseUri($base)
+            ->withApiKey($apiKey)
+            ->withBaseUri($baseUri)
             ->withHttpHeader('HTTP-Referer', config('app.url'))
             ->withHttpHeader('X-Title', config('app.name'))
             ->make();
+    }
+
+    /**
+     * Get the appropriate model name based on the provider
+     */
+    protected function getModelName()
+    {
+        return $this->isOpenRouter ? 'openai/gpt-4o-mini' : 'gpt-4o-mini';
     }
 
     /**
@@ -54,7 +71,7 @@ class OpenAIService
 
         try {
             $response = $this->client->chat()->create([
-                'model' => 'gpt-4o-mini',
+                'model' => $this->getModelName(),
                 'messages' => [
                     ['role' => 'system', 'content' => 'You are an expert automotive service dispatcher with 20 years of experience matching customers with the most suitable mechanics. You analyze mechanic qualifications, ratings, distance, and breakdown urgency to make optimal recommendations.'],
                     ['role' => 'user', 'content' => $prompt],
@@ -269,7 +286,7 @@ PROMPT;
         }
         try {
             $response = $this->client->chat()->create([
-                'model' => 'gpt-4o-mini',
+                'model' => $this->getModelName(),
                 'messages' => [
                     ['role' => 'system', 'content' => $sys],
                     ['role' => 'user', 'content' => trim($message) . (empty($userCtx) ? '' : "\nContext: " . $userCtx)],
