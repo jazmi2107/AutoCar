@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use OpenAI;
+use Illuminate\Support\Facades\Http;
 
 class OpenAIService
 {
@@ -70,17 +71,40 @@ class OpenAIService
         $prompt = $this->buildPrompt($mechanicsData, $breakdownType, $urgency);
 
         try {
-            $response = $this->client->chat()->create([
-                'model' => $this->getModelName(),
-                'messages' => [
-                    ['role' => 'system', 'content' => 'You are an expert automotive service dispatcher with 20 years of experience matching customers with the most suitable mechanics. You analyze mechanic qualifications, ratings, distance, and breakdown urgency to make optimal recommendations.'],
-                    ['role' => 'user', 'content' => $prompt],
-                ],
-                'temperature' => 0.3,
-                'max_tokens' => 500,
-            ]);
+            if ($this->isOpenRouter) {
+                $response = Http::withToken(config('services.openai.key'))
+                    ->withHeaders([
+                        'HTTP-Referer' => config('app.url'),
+                        'X-Title' => config('app.name'),
+                    ])
+                    ->post('https://openrouter.ai/api/v1/chat/completions', [
+                        'model' => $this->getModelName(),
+                        'messages' => [
+                            ['role' => 'system', 'content' => 'You are an expert automotive service dispatcher with 20 years of experience matching customers with the most suitable mechanics. You analyze mechanic qualifications, ratings, distance, and breakdown urgency to make optimal recommendations.'],
+                            ['role' => 'user', 'content' => $prompt],
+                        ],
+                        'temperature' => 0.3,
+                        'max_tokens' => 500,
+                    ]);
 
-            $aiResponse = $response->choices[0]->message->content;
+                if (!$response->successful()) {
+                    throw new \Exception('OpenRouter API Error: ' . $response->status() . ' ' . $response->body());
+                }
+
+                $aiResponse = $response->json('choices.0.message.content') ?? '';
+            } else {
+                $response = $this->client->chat()->create([
+                    'model' => $this->getModelName(),
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'You are an expert automotive service dispatcher with 20 years of experience matching customers with the most suitable mechanics. You analyze mechanic qualifications, ratings, distance, and breakdown urgency to make optimal recommendations.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                    'temperature' => 0.3,
+                    'max_tokens' => 500,
+                ]);
+
+                $aiResponse = $response->choices[0]->message->content;
+            }
             
             // Parse AI response to extract recommendation
             $recommendation = $this->parseAIRecommendation($aiResponse, $mechanics);
@@ -285,6 +309,29 @@ PROMPT;
             $userCtx = json_encode($context);
         }
         try {
+            if ($this->isOpenRouter) {
+                $response = Http::withToken(config('services.openai.key'))
+                    ->withHeaders([
+                        'HTTP-Referer' => config('app.url'),
+                        'X-Title' => config('app.name'),
+                    ])
+                    ->post('https://openrouter.ai/api/v1/chat/completions', [
+                        'model' => $this->getModelName(),
+                        'messages' => [
+                            ['role' => 'system', 'content' => $sys],
+                            ['role' => 'user', 'content' => trim($message) . (empty($userCtx) ? '' : "\nContext: " . $userCtx)],
+                        ],
+                        'temperature' => 0.2,
+                        'max_tokens' => 300,
+                    ]);
+
+                if (!$response->successful()) {
+                    throw new \Exception('OpenRouter API Error: ' . $response->status() . ' ' . $response->body());
+                }
+
+                return $response->json('choices.0.message.content') ?? '';
+            }
+
             $response = $this->client->chat()->create([
                 'model' => $this->getModelName(),
                 'messages' => [
