@@ -854,4 +854,20 @@ class AdminDashboardController extends Controller
 
         return view('admins.insurance.approvals', compact('companies'));
     }
+
+    /**
+     * Show reports.
+     */
+    public function reports()
+    {
+        return view('admins.reports');
+    }
+
+    /**
+     * Export reports.
+     */
+    public function exportReports()
+    {
+        return back()->with('info', 'Report export functionality is coming soon.');
+    }
 }

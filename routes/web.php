@@ -212,6 +212,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Reports
     Route::get('/reports', [AdminDashboardController::class, 'reports'])->name('reports');
     Route::get('/reports/export', [AdminDashboardController::class, 'exportReports'])->name('reports.export');
+
+    // Profile
+    Route::get('/profile', [AdminDashboardController::class, 'profile'])->name('profile');
+    Route::put('/profile', [AdminDashboardController::class, 'updateProfile'])->name('profile.update');
+    Route::put('/password', [AdminDashboardController::class, 'updatePassword'])->name('password.update');
 });
 
 // Insurance Company Dashboard Routes
