@@ -62,7 +62,14 @@ class AdminDashboardController extends Controller
                             // Collect pending insurance for recent list
                             if ($recentInsurance->count() < 5) {
                                 $data['id'] = $uid; // Append ID
-                                $recentInsurance->push((object)$data);
+                                // Recursively convert to object and handle dates
+                                $obj = json_decode(json_encode($data));
+                                if (isset($obj->created_at)) {
+                                    try {
+                                        $obj->created_at = \Illuminate\Support\Carbon::parse($obj->created_at);
+                                    } catch (\Exception $e) {}
+                                }
+                                $recentInsurance->push($obj);
                             }
                         }
                     }
@@ -90,13 +97,34 @@ class AdminDashboardController extends Controller
                      
                      if ($recentRequests->count() < 10) {
                          $req['id'] = $key;
-                         $recentRequests->push((object)$req);
+                         // Recursively convert to object
+                         $obj = json_decode(json_encode($req));
+                         
+                         // Ensure created_at is a Carbon instance for the view
+                         if (isset($obj->created_at)) {
+                             try {
+                                 $obj->created_at = \Illuminate\Support\Carbon::parse($obj->created_at);
+                             } catch (\Exception $e) {
+                                 $obj->created_at = now();
+                             }
+                         } else {
+                             $obj->created_at = now();
+                         }
+
+                         // Handle nested user and mechanic objects if they are just UIDs
+                         // The view expects $request->user->name and $request->mechanic->user->name
+                         // For now, let's just ensure they are objects if they exist
+                         
+                         $recentRequests->push($obj);
                      }
                  }
              }
         } catch (\Exception $e) {
              // Fallback to 0
         }
+
+        // Sort recent requests by date
+        $recentRequests = $recentRequests->sortByDesc('created_at');
 
         return view('admins.index', compact(
             'totalUsers',

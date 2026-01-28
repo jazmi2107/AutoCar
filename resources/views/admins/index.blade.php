@@ -163,12 +163,14 @@
                     @foreach($recentRequests->take(7) as $request)
                         <tr>
                             <td><strong style="color: #f8c300;">#{{ $request->id }}</strong></td>
-                            <td>{{ $request->user->name ?? $request->name }}</td>
-                            <td><i class="fas fa-tools"></i> {{ $request->breakdown_type }}</td>
-                            <td><i class="fas fa-car"></i> {{ $request->plate_number }}</td>
+                            <td>{{ $request->user->name ?? ($request->name ?? 'Unknown') }}</td>
+                            <td><i class="fas fa-tools"></i> {{ $request->breakdown_type ?? 'N/A' }}</td>
+                            <td><i class="fas fa-car"></i> {{ $request->plate_number ?? 'N/A' }}</td>
                             <td>
-                                @if($request->mechanic)
-                                    <i class="fas fa-user-check"></i> {{ $request->mechanic->user->name }}
+                                @if(isset($request->mechanic) && isset($request->mechanic->user))
+                                    <i class="fas fa-user-check"></i> {{ $request->mechanic->user->name ?? 'Mechanic' }}
+                                @elseif(isset($request->mechanic_name))
+                                    <i class="fas fa-user-check"></i> {{ $request->mechanic_name }}
                                 @else
                                     <span style="color: #888;"><i class="fas fa-user-slash"></i> Not Assigned</span>
                                 @endif
@@ -178,7 +180,13 @@
                                     {{ ucfirst(str_replace('_', ' ', $request->status)) }}
                                 </span>
                             </td>
-                            <td style="color: #aaa;">{{ $request->created_at->format('M d, Y') }}<br><small style="color: #666;">{{ $request->created_at->format('H:i') }}</small></td>
+                            <td style="color: #aaa;">
+                                @if(isset($request->created_at) && method_exists($request->created_at, 'format'))
+                                    {{ $request->created_at->format('M d, Y') }}<br><small style="color: #666;">{{ $request->created_at->format('H:i') }}</small>
+                                @else
+                                    {{ $request->created_at ?? 'N/A' }}
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
