@@ -46,20 +46,44 @@ Route::get('/debug-auth', function() {
         $dbError = $e->getMessage();
     }
 
-    // OpenAI Check
     $openaiStatus = 'NOT CHECKED';
     $openaiError = null;
     $apiKey = env('OPENAI_API_KEY');
+    $keyProvider = null;
 
     if ($apiKey) {
-        try {
-            $client = \OpenAI::client($apiKey);
-            // Lightweight call to check connection (list models, limit to 1)
-            $client->models()->list();
-            $openaiStatus = 'CONNECTED';
-        } catch (\Exception $e) {
-            $openaiStatus = 'FAILED';
-            $openaiError = $e->getMessage();
+        if (str_starts_with($apiKey, 'sk-or-v1')) {
+            $keyProvider = 'OpenRouter';
+            try {
+                $ch = curl_init('https://openrouter.ai/api/v1/models');
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Authorization: Bearer ' . $apiKey,
+                ]);
+                $resp = curl_exec($ch);
+                $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlErr = curl_error($ch);
+                curl_close($ch);
+                if ($resp !== false && $statusCode === 200) {
+                    $openaiStatus = 'CONNECTED (OpenRouter)';
+                } else {
+                    $openaiStatus = 'FAILED (OpenRouter)';
+                    $openaiError = $curlErr ?: ($resp ?: 'HTTP ' . $statusCode);
+                }
+            } catch (\Exception $e) {
+                $openaiStatus = 'FAILED (OpenRouter)';
+                $openaiError = $e->getMessage();
+            }
+        } else {
+            $keyProvider = 'OpenAI';
+            try {
+                $client = \OpenAI::client($apiKey);
+                $client->models()->list();
+                $openaiStatus = 'CONNECTED (OpenAI)';
+            } catch (\Exception $e) {
+                $openaiStatus = 'FAILED (OpenAI)';
+                $openaiError = $e->getMessage();
+            }
         }
     } else {
         $openaiStatus = 'SKIPPED (MISSING API KEY)';
@@ -81,6 +105,7 @@ Route::get('/debug-auth', function() {
             'HAS_FIREBASE_CREDENTIALS' => !empty(env('FIREBASE_CREDENTIALS')) || !empty(getenv('FIREBASE_CREDENTIALS')),
             'FIREBASE_CREDENTIALS_TYPE' => (!empty(env('FIREBASE_CREDENTIALS')) || !empty(getenv('FIREBASE_CREDENTIALS'))) ? (str_starts_with(trim(env('FIREBASE_CREDENTIALS') ?: getenv('FIREBASE_CREDENTIALS')), '{') ? 'JSON String' : 'File Path/Other') : 'N/A',
             'OPENAI_API_KEY' => !empty($apiKey) ? 'SET (Ends with ...' . substr($apiKey, -4) . ')' : 'MISSING',
+            'OPENAI_KEY_PROVIDER' => $keyProvider ?: 'UNKNOWN',
         ],
         'raw_env' => [
             'API_KEY_ENV' => env('FIREBASE_API_KEY') ? 'YES' : 'NO',
