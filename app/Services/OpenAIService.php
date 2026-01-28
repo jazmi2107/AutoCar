@@ -50,7 +50,7 @@ class OpenAIService
 
         try {
             $response = $this->client->chat()->create([
-                'model' => 'openai/gpt-4o-mini',
+                'model' => 'gpt-4o-mini',
                 'messages' => [
                     ['role' => 'system', 'content' => 'You are an expert automotive service dispatcher with 20 years of experience matching customers with the most suitable mechanics. You analyze mechanic qualifications, ratings, distance, and breakdown urgency to make optimal recommendations.'],
                     ['role' => 'user', 'content' => $prompt],
