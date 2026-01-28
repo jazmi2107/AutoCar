@@ -265,7 +265,7 @@ PROMPT;
         }
         try {
             $response = $this->client->chat()->create([
-                'model' => 'openai/gpt-4o-mini',
+                'model' => 'gpt-4o-mini',
                 'messages' => [
                     ['role' => 'system', 'content' => $sys],
                     ['role' => 'user', 'content' => trim($message) . (empty($userCtx) ? '' : "\nContext: " . $userCtx)],
@@ -275,7 +275,7 @@ PROMPT;
             ]);
             return $response->choices[0]->message->content;
         } catch (\Throwable $e) {
-            return 'I cannot reach the assistant right now. Please try again later or describe your issue for manual help.';
+            return 'I cannot reach the assistant right now. Please try again later or describe your issue for manual help. (Debug Error: ' . $e->getMessage() . ')';
         }
     }
 }
