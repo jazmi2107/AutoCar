@@ -50,7 +50,17 @@ return [
              *
              */
 
-            'credentials' => env('FIREBASE_CREDENTIALS') ?: env('GOOGLE_APPLICATION_CREDENTIALS'),
+            'credentials' => (function() {
+                $creds = env('FIREBASE_CREDENTIALS');
+                if (!$creds) return env('GOOGLE_APPLICATION_CREDENTIALS');
+                
+                // If it's a JSON string, try to decode it
+                if (is_string($creds) && str_starts_with(trim($creds), '{')) {
+                    return json_decode($creds, true);
+                }
+                
+                return $creds;
+            })(),
             
             'project_id' => env('FIREBASE_PROJECT_ID') ?: (env('GOOGLE_CLOUD_PROJECT') ?: 'autocar-9a1a7'),
 

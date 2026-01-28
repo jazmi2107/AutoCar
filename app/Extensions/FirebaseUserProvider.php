@@ -13,7 +13,7 @@ class FirebaseUserProvider implements UserProvider
     protected $auth;
     protected $model;
 
-    public function __construct(FirebaseAuth $auth, $model)
+    public function __construct($auth, $model)
     {
         $this->auth = $auth;
         $this->model = $model;
@@ -21,6 +21,7 @@ class FirebaseUserProvider implements UserProvider
 
     public function retrieveById($identifier)
     {
+        if (!$this->auth) return null;
         try {
             $user = $this->auth->getUser($identifier);
             return $this->attachUserProfile($user);
@@ -31,19 +32,16 @@ class FirebaseUserProvider implements UserProvider
 
     public function retrieveByToken($identifier, $token)
     {
-        // Firebase Auth doesn't use "remember me" tokens in the same way.
-        // We can verify the ID token if passed.
         return null;
     }
 
     public function updateRememberToken(Authenticatable $user, $token)
     {
-        // Not applicable for Firebase
     }
 
     public function retrieveByCredentials(array $credentials)
     {
-        if (!isset($credentials['email'])) {
+        if (!$this->auth || !isset($credentials['email'])) {
             return null;
         }
 
@@ -57,6 +55,8 @@ class FirebaseUserProvider implements UserProvider
 
     public function validateCredentials(Authenticatable $user, array $credentials)
     {
+        if (!$this->auth) return false;
+        
         $email = $credentials['email'];
         $password = $credentials['password'];
         $apiKey = env('FIREBASE_API_KEY');
@@ -80,18 +80,22 @@ class FirebaseUserProvider implements UserProvider
         $firebaseUser = new FirebaseUser($authUserData);
         
         try {
-            $database = app('firebase.database');
-            $reference = $database->getReference('users/' . $authUserData->uid);
-            $snapshot = $reference->getSnapshot();
-            
-            if ($snapshot->exists()) {
-                $profile = $snapshot->getValue();
-                foreach ($profile as $key => $value) {
-                    $firebaseUser->$key = $value;
+            // Check if firebase.database is available before resolving
+            if (app()->bound('firebase.database')) {
+                $database = app('firebase.database');
+                $reference = $database->getReference('users/' . $authUserData->uid);
+                $snapshot = $reference->getSnapshot();
+                
+                if ($snapshot->exists()) {
+                    $profile = $snapshot->getValue();
+                    foreach ($profile as $key => $value) {
+                        $firebaseUser->$key = $value;
+                    }
                 }
             }
         } catch (\Exception $e) {
-            // Ignore DB errors, return user with just Auth data
+            // Log error or ignore, return user with just Auth data
+            \Log::warning('Firebase DB profile fetch failed: ' . $e->getMessage());
         }
         
         return $firebaseUser;

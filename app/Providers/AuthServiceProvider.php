@@ -25,7 +25,18 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Auth::provider('firebase', function ($app, array $config) {
-            return new FirebaseUserProvider($app['firebase.auth'], FirebaseUser::class);
+            try {
+                return new FirebaseUserProvider($app['firebase.auth'], FirebaseUser::class);
+            } catch (\Exception $e) {
+                // If Firebase fails to initialize (e.g. missing credentials), 
+                // we return the provider anyway but it will handle failures gracefully.
+                // We use a proxy or just pass null if we have to, but better to handle inside provider.
+                \Log::error('Firebase Auth Provider failed to initialize: ' . $e->getMessage());
+                
+                // Return a dummy/empty provider or the real one with a flag?
+                // For now, let's try to resolve it lazily inside the provider instead.
+                return new FirebaseUserProvider(null, FirebaseUser::class);
+            }
         });
     }
 }

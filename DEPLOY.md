@@ -44,7 +44,17 @@ This means:
     | `FIREBASE_PROJECT` | `app` |
     | `FIREBASE_DATABASE_URL` | `https://autocar-9a1a7-default-rtdb.asia-southeast1.firebasedatabase.app/` |
     | `FIREBASE_API_KEY` | (Copy from `.env`) |
-    | `FIREBASE_CREDENTIALS` | (Copy the **content** of your `firebase_credentials.json` file here) |
+    | `FIREBASE_CREDENTIALS` | **The entire JSON content** of your service account file (NOT the file path). |
+
+### **Important: FIREBASE_CREDENTIALS**
+Since Vercel is a serverless environment, you cannot upload the `.json` file. Instead, you must copy the **text content** of your service account file and paste it into the Vercel Environment Variables.
+
+**Steps:**
+1. Open `storage/app/firebase/firebase_credentials.json`.
+2. Copy everything inside the file.
+3. Go to Vercel Dashboard -> Settings -> Environment Variables.
+4. Add `FIREBASE_CREDENTIALS` and paste the JSON content as the value.
+5. Save and redeploy.
 
 4.  **Deploy**:
     -   Click "Deploy".
