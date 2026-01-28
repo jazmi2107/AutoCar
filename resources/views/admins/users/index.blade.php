@@ -230,7 +230,13 @@
                             <td><span class="role-badge role-{{ $user->role }}">{{ ucfirst($user->role) }}</span></td>
                             <td><i class="fas fa-phone" style="color: #f8c300; margin-right: 5px;"></i>{{ $user->driver->phone_number ?? 'N/A' }}</td>                            
                             <td><i class="fas fa-clipboard-list" style="color: #f8c300; margin-right: 5px;"></i>{{ $user->assistance_requests_count ?? 0 }}</td>
-                            <td>{{ $user->created_at->format('M d, Y') }}</td>
+                            <td>
+                                @if(isset($user->created_at) && method_exists($user->created_at, 'format'))
+                                    {{ $user->created_at->format('M d, Y') }}
+                                @else
+                                    {{ $user->created_at ?? 'N/A' }}
+                                @endif
+                            </td>
                             <td>
                                 <div class="action-buttons">
                                     <a href="{{ route('admin.users.show', $user->id) }}" class="btn btn-view">

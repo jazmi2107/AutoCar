@@ -157,7 +157,20 @@ class AdminDashboardController extends Controller
                     // Filter by role 'user'
                     if (($data['role'] ?? '') === 'user') {
                         $data['id'] = $uid;
-                        $usersCollection->push((object)$data);
+                        
+                        // Handle date conversion
+                        $obj = json_decode(json_encode($data));
+                        if (isset($obj->created_at)) {
+                            try {
+                                $obj->created_at = \Illuminate\Support\Carbon::parse($obj->created_at);
+                            } catch (\Exception $e) {
+                                $obj->created_at = now();
+                            }
+                        } else {
+                            $obj->created_at = now();
+                        }
+                        
+                        $usersCollection->push($obj);
                     }
                 }
             }
