@@ -79,6 +79,30 @@ class UserDashboardController extends Controller
         ));
     }
 
+    public function assistantChat(Request $request)
+    {
+        $validated = $request->validate([
+            'message' => 'required|string|max:2000'
+        ]);
+        $ctx = [];
+        try {
+            if (app()->bound('firebase.database')) {
+                $list = $this->getFirebaseRequests(Auth::id());
+                $ctx['recent_requests'] = $list->take(5)->map(function($r){
+                    return [
+                        'id' => $r->id,
+                        'status' => $r->status,
+                        'type' => $r->breakdown_type,
+                        'plate' => $r->plate_number,
+                    ];
+                })->values()->all();
+            }
+        } catch (\Throwable $e) {}
+        $svc = new \App\Services\OpenAIService();
+        $reply = $svc->chatAssistant($validated['message'], $ctx);
+        return response()->json(['reply' => $reply]);
+    }
+
     /**
      * Show the request assistance form.
      */

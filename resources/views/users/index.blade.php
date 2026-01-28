@@ -356,6 +356,26 @@
         </div>
     </section>
 
+    <div id="aiAssistant" style="position: fixed; bottom: 20px; right: 20px; z-index: 10000;">
+        <div id="chatWidget" style="display:none; width: 360px; height: 480px; background:#1a1a1a; border:2px solid #333; border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,0.5); overflow:hidden;">
+            <div style="background:#000; color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-robot" style="color:#f8c300"></i>
+                    <span style="font-weight:bold;">AI Assistant</span>
+                </div>
+                <button id="closeChat" style="background:none; border:none; color:#888; font-size:18px; cursor:pointer;">×</button>
+            </div>
+            <div id="chatMessages" style="height:360px; padding:12px; overflow-y:auto; background:#121212;"></div>
+            <div style="padding:10px; background:#0d0d0d; display:flex; gap:8px;">
+                <input id="chatInput" type="text" placeholder="Ask for help..." style="flex:1; padding:10px; border:2px solid #333; background:#222; color:#fff; border-radius:6px;">
+                <button id="sendChat" style="background:#f8c300; color:#000; border:none; padding:10px 14px; border-radius:6px; font-weight:bold; cursor:pointer;">Send</button>
+            </div>
+        </div>
+        <button id="openChat" style="width:56px; height:56px; border-radius:50%; background:#f8c300; color:#000; border:none; box-shadow:0 6px 16px rgba(0,0,0,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+            <i class="fas fa-comments"></i>
+        </button>
+    </div>
+
     <!-- Footer (Same as welcome.blade.php) -->
     <footer>
         <div class="footer-bottom">
@@ -372,6 +392,56 @@
 
     <script>
         document.getElementById('year').textContent = new Date().getFullYear();
+        const openBtn = document.getElementById('openChat');
+        const closeBtn = document.getElementById('closeChat');
+        const widget = document.getElementById('chatWidget');
+        const messages = document.getElementById('chatMessages');
+        const input = document.getElementById('chatInput');
+        const send = document.getElementById('sendChat');
+        function addMsg(role, text){
+            const wrap = document.createElement('div');
+            wrap.style.margin = '8px 0';
+            wrap.style.display = 'flex';
+            wrap.style.justifyContent = role === 'user' ? 'flex-end' : 'flex-start';
+            const bubble = document.createElement('div');
+            bubble.style.maxWidth = '80%';
+            bubble.style.padding = '10px 12px';
+            bubble.style.borderRadius = '10px';
+            bubble.style.background = role === 'user' ? '#2a2a2a' : '#222';
+            bubble.style.color = '#fff';
+            bubble.textContent = text;
+            wrap.appendChild(bubble);
+            messages.appendChild(wrap);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        openBtn.onclick = function(){ widget.style.display = 'block'; };
+        if(closeBtn){ closeBtn.onclick = function(){ widget.style.display = 'none'; }; }
+        async function sendMessage(){
+            const text = input.value.trim();
+            if(!text) return;
+            addMsg('user', text);
+            input.value='';
+            const loading = 'Thinking...';
+            addMsg('assistant', loading);
+            try{
+                const res = await fetch("{{ route('user.assistant.chat') }}",{
+                    method:'POST',
+                    headers:{
+                        'Content-Type':'application/json',
+                        'X-CSRF-TOKEN':'{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await res.json();
+                messages.lastChild.remove();
+                addMsg('assistant', data.reply || 'No response');
+            }catch(e){
+                messages.lastChild.remove();
+                addMsg('assistant','Network error');
+            }
+        }
+        send.onclick = sendMessage;
+        input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ sendMessage(); }});
     </script>
 </body>
 </html>

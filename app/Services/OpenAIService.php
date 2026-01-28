@@ -255,4 +255,27 @@ PROMPT;
 
         return $mechanics;
     }
+
+    public function chatAssistant(string $message, array $context = []): string
+    {
+        $sys = 'You are AutoCar AI Assistant. Help users with requests, mechanics, insurance, and app guidance. Be concise and actionable.';
+        $userCtx = '';
+        if (!empty($context)) {
+            $userCtx = json_encode($context);
+        }
+        try {
+            $response = $this->client->chat()->create([
+                'model' => 'openai/gpt-4o-mini',
+                'messages' => [
+                    ['role' => 'system', 'content' => $sys],
+                    ['role' => 'user', 'content' => trim($message) . (empty($userCtx) ? '' : "\nContext: " . $userCtx)],
+                ],
+                'temperature' => 0.2,
+                'max_tokens' => 300,
+            ]);
+            return $response->choices[0]->message->content;
+        } catch (\Throwable $e) {
+            return 'I cannot reach the assistant right now. Please try again later or describe your issue for manual help.';
+        }
+    }
 }

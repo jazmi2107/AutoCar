@@ -144,6 +144,7 @@ Route::middleware(['auth'])->prefix('user')->name('user.')->group(function () {
     Route::put('/profile', [UserDashboardController::class, 'updateProfile'])->name('profile.update');
     Route::put('/password', [UserDashboardController::class, 'updatePassword'])->name('password.update');
     Route::get('/reverse-geocode', [UserDashboardController::class, 'reverseGeocode'])->name('reverse.geocode');
+    Route::post('/assistant/chat', [UserDashboardController::class, 'assistantChat'])->name('assistant.chat');
 });
 
 // User Management Routes (CRUD)
