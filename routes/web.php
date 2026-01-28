@@ -56,13 +56,19 @@ Route::get('/debug-auth', function() {
         'env_check' => [
             'FIREBASE_API_KEY' => !empty(config('services.firebase.api_key')) ? 'SET (Ends with ...' . substr(config('services.firebase.api_key'), -4) . ')' : 'MISSING',
             'FIREBASE_DATABASE_URL' => !empty(config('services.firebase.database_url')) ? 'SET' : 'MISSING',
-            'FIREBASE_PROJECT_ID' => config('firebase.project_id') ?: 'MISSING',
-            'HAS_FIREBASE_CREDENTIALS' => !empty(env('FIREBASE_CREDENTIALS')),
-            'FIREBASE_CREDENTIALS_TYPE' => !empty(env('FIREBASE_CREDENTIALS')) ? (str_starts_with(trim(env('FIREBASE_CREDENTIALS')), '{') ? 'JSON String' : 'File Path/Other') : 'N/A',
+            'FIREBASE_PROJECT_ID' => config('firebase.projects.app.project_id') ?: 'MISSING',
+            'HAS_FIREBASE_CREDENTIALS' => !empty(env('FIREBASE_CREDENTIALS')) || !empty(getenv('FIREBASE_CREDENTIALS')),
+            'FIREBASE_CREDENTIALS_TYPE' => (!empty(env('FIREBASE_CREDENTIALS')) || !empty(getenv('FIREBASE_CREDENTIALS'))) ? (str_starts_with(trim(env('FIREBASE_CREDENTIALS') ?: getenv('FIREBASE_CREDENTIALS')), '{') ? 'JSON String' : 'File Path/Other') : 'N/A',
+        ],
+        'raw_env' => [
+            'API_KEY_ENV' => env('FIREBASE_API_KEY') ? 'YES' : 'NO',
+            'API_KEY_GETENV' => getenv('FIREBASE_API_KEY') ? 'YES' : 'NO',
+            'DB_URL_ENV' => env('FIREBASE_DATABASE_URL') ? 'YES' : 'NO',
+            'CREDENTIALS_ENV' => env('FIREBASE_CREDENTIALS') ? 'YES' : 'NO',
         ],
         'config' => [
             'auth_driver' => config('auth.providers.users.driver'),
-            'firebase_project_id' => config('firebase.project_id'),
+            'firebase_project_id' => config('firebase.projects.app.project_id'),
         ]
     ];
 });
