@@ -6,6 +6,7 @@ use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Mechanic\MechanicController;
 use App\Http\Controllers\InsuranceCompany\InsuranceCompanyController;
+use Illuminate\Support\Facades\Artisan;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,6 +26,24 @@ Route::get('/', function () {
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+// Debug Routes
+Route::get('/debug-auth', function() {
+    return [
+        'config' => config('auth'),
+        'user_model' => config('auth.providers.users.model'),
+        'user_driver' => config('auth.providers.users.driver'),
+        'env_auth_driver' => env('AUTH_DRIVER'),
+    ];
+});
+
+Route::get('/clear-cache', function() {
+    Artisan::call('config:clear');
+    Artisan::call('cache:clear');
+    Artisan::call('view:clear');
+    Artisan::call('route:clear');
+    return "Cache cleared";
+});
 
 // User Dashboard Routes
 Route::middleware(['auth'])->prefix('user')->name('user.')->group(function () {
@@ -99,38 +118,34 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::post('/mechanics/{id}/reject', [AdminDashboardController::class, 'rejectMechanic'])->name('mechanics.reject');
     Route::delete('/mechanics/{id}', [AdminDashboardController::class, 'deleteMechanic'])->name('mechanics.delete');
     
-    // Insurance Management
-    Route::get('/insurance', [AdminDashboardController::class, 'insurance'])->name('insurance');
-    Route::get('/insurance/create', [AdminDashboardController::class, 'createInsurance'])->name('insurance.create');
-    Route::post('/insurance', [AdminDashboardController::class, 'storeInsurance'])->name('insurance.store');
-    Route::get('/insurance/{id}', [AdminDashboardController::class, 'showInsurance'])->name('insurance.show');
-    Route::get('/insurance/{id}/edit', [AdminDashboardController::class, 'editInsurance'])->name('insurance.edit');
-    Route::put('/insurance/{id}', [AdminDashboardController::class, 'updateInsurance'])->name('insurance.update');
-    Route::post('/insurance/{id}/approve', [AdminDashboardController::class, 'approveInsurance'])->name('insurance.approve');
-    Route::post('/insurance/{id}/reject', [AdminDashboardController::class, 'rejectInsurance'])->name('insurance.reject');
-    Route::delete('/insurance/{id}', [AdminDashboardController::class, 'deleteInsurance'])->name('insurance.delete');
+    // Insurance Company Management
+    Route::get('/insurance-companies', [AdminDashboardController::class, 'insuranceCompanies'])->name('insurance_companies');
+    Route::get('/insurance-companies/create', [AdminDashboardController::class, 'createInsuranceCompany'])->name('insurance_companies.create');
+    Route::post('/insurance-companies', [AdminDashboardController::class, 'storeInsuranceCompany'])->name('insurance_companies.store');
+    Route::get('/insurance-companies/{id}', [AdminDashboardController::class, 'showInsuranceCompany'])->name('insurance_companies.show');
+    Route::get('/insurance-companies/{id}/edit', [AdminDashboardController::class, 'editInsuranceCompany'])->name('insurance_companies.edit');
+    Route::put('/insurance-companies/{id}', [AdminDashboardController::class, 'updateInsuranceCompany'])->name('insurance_companies.update');
+    Route::delete('/insurance-companies/{id}', [AdminDashboardController::class, 'deleteInsuranceCompany'])->name('insurance_companies.delete');
     
-    // Insurance Approvals
-    Route::get('/insurance-approvals', [AdminDashboardController::class, 'insuranceApprovals'])->name('insurance.approvals');
-    
-    // Request Management
-    Route::get('/requests', [AdminDashboardController::class, 'requests'])->name('requests');
-    Route::get('/requests/{id}', [AdminDashboardController::class, 'showRequest'])->name('requests.show');
-    Route::post('/requests/{id}/assign', [AdminDashboardController::class, 'assignMechanic'])->name('requests.assign');
-    Route::put('/requests/{id}/status', [AdminDashboardController::class, 'updateRequestStatus'])->name('requests.status');
-    
-    // Admin Profile
-    Route::get('/profile', [AdminDashboardController::class, 'profile'])->name('profile');
-    Route::put('/profile', [AdminDashboardController::class, 'updateProfile'])->name('profile.update');
-    Route::put('/password', [AdminDashboardController::class, 'updatePassword'])->name('password.update');
+    // Reports
+    Route::get('/reports', [AdminDashboardController::class, 'reports'])->name('reports');
+    Route::get('/reports/export', [AdminDashboardController::class, 'exportReports'])->name('reports.export');
 });
 
 // Insurance Company Dashboard Routes
-Route::middleware(['auth', 'insurance.approved'])->prefix('insurance-company')->name('insurance_company.')->group(function () {
+Route::middleware(['auth'])->prefix('insurance')->name('insurance_company.')->group(function () {
     Route::get('/dashboard', [InsuranceCompanyController::class, 'index'])->name('dashboard');
+    Route::get('/mechanics', [InsuranceCompanyController::class, 'mechanics'])->name('mechanics');
+    Route::get('/mechanics/create', [InsuranceCompanyController::class, 'createMechanic'])->name('mechanics.create');
+    Route::post('/mechanics', [InsuranceCompanyController::class, 'storeMechanic'])->name('mechanics.store');
+    Route::get('/mechanics/{id}', [InsuranceCompanyController::class, 'showMechanic'])->name('mechanics.show');
+    Route::get('/mechanics/{id}/edit', [InsuranceCompanyController::class, 'editMechanic'])->name('mechanics.edit');
+    Route::put('/mechanics/{id}', [InsuranceCompanyController::class, 'updateMechanic'])->name('mechanics.update');
+    Route::delete('/mechanics/{id}', [InsuranceCompanyController::class, 'deleteMechanic'])->name('mechanics.delete');
     Route::get('/requests', [InsuranceCompanyController::class, 'requests'])->name('requests');
     Route::get('/requests/{id}', [InsuranceCompanyController::class, 'showRequest'])->name('request.show');
-    Route::get('/receipt/{id}', [InsuranceCompanyController::class, 'receipt'])->name('receipt');
+    Route::put('/requests/{id}/approve', [InsuranceCompanyController::class, 'approveRequest'])->name('request.approve');
+    Route::put('/requests/{id}/reject', [InsuranceCompanyController::class, 'rejectRequest'])->name('request.reject');
     Route::get('/profile', [InsuranceCompanyController::class, 'profile'])->name('profile');
     Route::put('/profile', [InsuranceCompanyController::class, 'updateProfile'])->name('profile.update');
     Route::put('/password', [InsuranceCompanyController::class, 'updatePassword'])->name('password.update');
