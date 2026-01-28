@@ -201,13 +201,13 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::delete('/mechanics/{id}', [AdminDashboardController::class, 'deleteMechanic'])->name('mechanics.delete');
     
     // Insurance Company Management
-    Route::get('/insurance-companies', [AdminDashboardController::class, 'insuranceCompanies'])->name('insurance_companies');
-    Route::get('/insurance-companies/create', [AdminDashboardController::class, 'createInsuranceCompany'])->name('insurance_companies.create');
-    Route::post('/insurance-companies', [AdminDashboardController::class, 'storeInsuranceCompany'])->name('insurance_companies.store');
-    Route::get('/insurance-companies/{id}', [AdminDashboardController::class, 'showInsuranceCompany'])->name('insurance_companies.show');
-    Route::get('/insurance-companies/{id}/edit', [AdminDashboardController::class, 'editInsuranceCompany'])->name('insurance_companies.edit');
-    Route::put('/insurance-companies/{id}', [AdminDashboardController::class, 'updateInsuranceCompany'])->name('insurance_companies.update');
-    Route::delete('/insurance-companies/{id}', [AdminDashboardController::class, 'deleteInsuranceCompany'])->name('insurance_companies.delete');
+    Route::get('/insurance-companies', [AdminDashboardController::class, 'insurance'])->name('insurance');
+    Route::get('/insurance-companies/create', [AdminDashboardController::class, 'createInsurance'])->name('insurance.create');
+    Route::post('/insurance-companies', [AdminDashboardController::class, 'storeInsurance'])->name('insurance.store');
+    Route::get('/insurance-companies/{id}', [AdminDashboardController::class, 'showInsurance'])->name('insurance.show');
+    Route::get('/insurance-companies/{id}/edit', [AdminDashboardController::class, 'editInsurance'])->name('insurance.edit');
+    Route::put('/insurance-companies/{id}', [AdminDashboardController::class, 'updateInsurance'])->name('insurance.update');
+    Route::delete('/insurance-companies/{id}', [AdminDashboardController::class, 'deleteInsurance'])->name('insurance.delete');
     
     // Reports
     Route::get('/reports', [AdminDashboardController::class, 'reports'])->name('reports');
