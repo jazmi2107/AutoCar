@@ -68,14 +68,10 @@ class FirebaseUserProvider implements UserProvider
         
         $email = $credentials['email'];
         $password = $credentials['password'];
-        $apiKey = env('FIREBASE_API_KEY');
+        $apiKey = config('services.firebase.api_key');
 
         if (empty($apiKey)) {
-             $apiKey = env('VITE_FIREBASE_API_KEY');
-        }
-
-        if (empty($apiKey)) {
-            \Log::error('FIREBASE_API_KEY is missing. Cannot validate password.');
+            \Log::error('FIREBASE_API_KEY is missing in config. Cannot validate password.');
             return false;
         }
 

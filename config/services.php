@@ -40,4 +40,9 @@ return [
         'api_key' => env('GOOGLE_MAPS_API_KEY', 'AIzaSyCziCeDmXEcKcayGX8CkuDWQ_OBctigFW8'),
     ],
 
+    'firebase' => [
+        'api_key' => env('FIREBASE_API_KEY', env('VITE_FIREBASE_API_KEY')),
+        'database_url' => env('FIREBASE_DATABASE_URL'),
+    ],
+
 ];

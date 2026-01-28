@@ -54,9 +54,9 @@ Route::get('/debug-auth', function() {
             'db_error' => $dbError,
         ],
         'env_check' => [
-            'FIREBASE_API_KEY' => !empty(env('FIREBASE_API_KEY')) ? 'SET (Ends with ...' . substr(env('FIREBASE_API_KEY'), -4) . ')' : 'MISSING',
-            'FIREBASE_DATABASE_URL' => !empty(env('FIREBASE_DATABASE_URL')) ? 'SET' : 'MISSING',
-            'FIREBASE_PROJECT_ID' => env('FIREBASE_PROJECT_ID') ?: 'MISSING',
+            'FIREBASE_API_KEY' => !empty(config('services.firebase.api_key')) ? 'SET (Ends with ...' . substr(config('services.firebase.api_key'), -4) . ')' : 'MISSING',
+            'FIREBASE_DATABASE_URL' => !empty(config('services.firebase.database_url')) ? 'SET' : 'MISSING',
+            'FIREBASE_PROJECT_ID' => config('firebase.project_id') ?: 'MISSING',
             'HAS_FIREBASE_CREDENTIALS' => !empty(env('FIREBASE_CREDENTIALS')),
             'FIREBASE_CREDENTIALS_TYPE' => !empty(env('FIREBASE_CREDENTIALS')) ? (str_starts_with(trim(env('FIREBASE_CREDENTIALS')), '{') ? 'JSON String' : 'File Path/Other') : 'N/A',
         ],
