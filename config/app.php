@@ -122,7 +122,9 @@ return [
     |
     */
 
-    'key' => env('APP_KEY'),
+    'key' => (env('APP_KEY') === '${APP_KEY}' || empty(env('APP_KEY'))) 
+        ? 'base64:IAAWVC++ZdUQWwkbOVcIJkLwAbv/9vTmQgh8wRChCoI=' 
+        : env('APP_KEY'),
 
     'cipher' => 'AES-256-CBC',
 

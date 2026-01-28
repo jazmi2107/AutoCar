@@ -40,6 +40,7 @@ This means:
     | Key | Value |
     | --- | --- |
     | `APP_KEY` | (Copy from `.env` or generate a new one) |
+    | `APP_URL` | Your Vercel domain (e.g., `https://your-app.vercel.app`) |
     | `FIREBASE_PROJECT` | `app` |
     | `FIREBASE_DATABASE_URL` | `https://autocar-9a1a7-default-rtdb.asia-southeast1.firebasedatabase.app/` |
     | `FIREBASE_API_KEY` | (Copy from `.env`) |
