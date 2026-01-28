@@ -338,43 +338,8 @@ class AdminDashboardController extends Controller
      */
     public function showMechanic($id)
     {
-        $mechanic = Mechanic::with(['user', 'insuranceCompany'])->findOrFail($id);
-        $requests = AssistanceRequest::where('mechanic_id', $id)
-            ->with('user')
-            ->latest()
-            ->paginate(10);
-
-        return view('admins.mechanics.show', compact('mechanic', 'requests'));
-    }
-
-    /**
-     * Approve mechanic.
-     */
-    public function approveMechanic($id)
-    {
-        $mechanic = Mechanic::findOrFail($id);
-        $mechanic->update(['approval_status' => 'approved']);
-
-        return back()->with('success', 'Mechanic approved successfully!');
-    }
-
-    /**
-     * Reject mechanic.
-     */
-    public function rejectMechanic(Request $request, $id)
-    {
-        $mechanic = Mechanic::findOrFail($id);
-        
-        $validated = $request->validate([
-            'rejection_reason' => 'nullable|string|max:500'
-        ]);
-
-        $mechanic->update([
-            'approval_status' => 'rejected',
-            'rejection_reason' => $validated['rejection_reason'] ?? null
-        ]);
-
-        return back()->with('success', 'Mechanic rejected!');
+        // TODO: Implement Firebase fetching for mechanic details
+        return redirect()->route('admin.mechanics')->with('info', 'Mechanic details are being migrated to Firebase.');
     }
 
     /**
@@ -382,18 +347,8 @@ class AdminDashboardController extends Controller
      */
     public function deleteMechanic($id)
     {
-        $mechanic = Mechanic::findOrFail($id);
-        $user = $mechanic->user;
-        
-        // Delete the mechanic record
-        $mechanic->delete();
-        
-        // Optionally delete the user account as well
-        if ($user) {
-            $user->delete();
-        }
-
-        return redirect()->route('admin.mechanics')->with('success', 'Mechanic deleted successfully!');
+        // TODO: Implement Firebase deletion for mechanic
+        return redirect()->route('admin.mechanics')->with('info', 'Mechanic deletion is being migrated to Firebase.');
     }
 
     /**
@@ -401,9 +356,8 @@ class AdminDashboardController extends Controller
      */
     public function editMechanic($id)
     {
-        $mechanic = Mechanic::with(['user', 'insuranceCompany'])->findOrFail($id);
-        $insuranceCompanies = InsuranceCompany::where('approval_status', 'approved')->get();
-        return view('admins.mechanics.edit', compact('mechanic', 'insuranceCompanies'));
+        // TODO: Implement Firebase fetching for mechanic edit
+        return redirect()->route('admin.mechanics')->with('info', 'Mechanic editing is being migrated to Firebase.');
     }
 
     /**
@@ -500,58 +454,26 @@ class AdminDashboardController extends Controller
      */
     public function insurance(Request $request)
     {
-        $query = InsuranceCompany::with('user')->withCount('mechanics')
-            ->where('approval_status', '!=', 'pending');
-
-        // Search filter
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('company_name', 'like', "%{$search}%")
-                  ->orWhereHas('user', function($uq) use ($search) {
-                      $uq->where('email', 'like', "%{$search}%");
-                  });
-            });
-        }
-
-        // Status filter
-        if ($request->filled('status')) {
-            $query->where('approval_status', $request->status);
-        }
-
-        $companies = $query->latest()->paginate(15)->withQueryString();
-
-        return view('admins.insurance.index', compact('companies'));
+        // TODO: Implement Firebase fetching for insurance list
+        return redirect()->route('admin.dashboard')->with('info', 'Insurance list is being migrated to Firebase.');
     }
 
     /**
      * Approve insurance company.
      */
-    public function approveInsurance($id)
+    public function approveInsuranceLegacy($id)
     {
-        $company = InsuranceCompany::findOrFail($id);
-        $company->update(['approval_status' => 'approved']);
-
-        return back()->with('success', 'Insurance company approved successfully!');
+        // Deprecated, see approveInsurance at bottom
+        return redirect()->route('admin.approvals');
     }
 
     /**
      * Reject insurance company.
      */
-    public function rejectInsurance(Request $request, $id)
+    public function rejectInsuranceLegacy(Request $request, $id)
     {
-        $company = InsuranceCompany::findOrFail($id);
-        
-        $validated = $request->validate([
-            'rejection_reason' => 'required|string|max:500'
-        ]);
-
-        $company->update([
-            'approval_status' => 'rejected',
-            'rejection_reason' => $validated['rejection_reason']
-        ]);
-
-        return back()->with('success', 'Insurance company rejected!');
+        // Deprecated, see rejectInsurance at bottom
+        return redirect()->route('admin.approvals');
     }
 
     /**
@@ -559,13 +481,8 @@ class AdminDashboardController extends Controller
      */
     public function showInsurance($id)
     {
-        $company = InsuranceCompany::with('user')->findOrFail($id);
-        $mechanics = Mechanic::where('insurance_company_id', $id)
-            ->with('user')
-            ->latest()
-            ->paginate(10);
-
-        return view('admins.insurance.show', compact('company', 'mechanics'));
+        // TODO: Implement Firebase fetching for insurance details
+        return redirect()->route('admin.insurance')->with('info', 'Insurance details are being migrated to Firebase.');
     }
 
     /**
